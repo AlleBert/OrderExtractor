@@ -28,6 +28,17 @@ Dal server, con `curl` e `jq` disponibili, chiedi un token per la console:
 
 Apri nel browser indicato l’URL di verifica e inserisci il codice mostrato nel terminale. Completa l’autenticazione con Authenticator. Il comando stampa il token da copiare nel campo **Token di accesso** della console. Il token va usato solo nell’URL privato della console.
 
+### Se il DNS del nodo punta a Funnel
+
+Quando lo stesso nome Tailscale serve anche un Funnel, il resolver del server può restituire un IP pubblico. Se la porta privata funziona quando indirizzi la richiesta all’IPv4 Tailscale del server, passa quell’IP allo script. L’issuer, il nome TLS e la verifica del certificato restano quelli HTTPS di Keycloak.
+
+```sh
+OE_IDENTITY_TAILNET_IP="$(tailscale ip -4)" \
+  ./scripts/keycloak-admin-token.sh https://server.tailnet.ts.net:10444/realms/order-extractor
+```
+
+Per applicare la stessa risoluzione nel container licenze, imposta in `.env` `OE_IDENTITY_TAILNET_HOST` al nome Tailscale di Keycloak senza porta e `OE_IDENTITY_TAILNET_IP` all’IPv4 Tailscale del nodo. Aggiungi `-f infra/tailscale-keycloak.compose.yaml` dopo `-f infra/tailscale.compose.yaml` nei comandi Compose dello stack licenze, incluso il controllo JWKS qui sotto. Il file aggiuntivo modifica la risoluzione del nome solo nel container `api`. Il controllo del JWKS conferma anche la raggiungibilità di Serve dal container.
+
 ## 3. Collauda la console prima di esporre l’API
 
 Avvia lo [stack licenze](tailscale-licensing.md#accesso-riservato-e-mfa) e usa la porta privata della console:

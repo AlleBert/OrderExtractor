@@ -7,9 +7,25 @@ if [[ ! "$issuer" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?/realms/[a-zA-Z0-9_-]+$ ]]
     exit 2
 fi
 
+curl_options=(--silent --show-error --max-time 15)
+if [[ -n "${OE_IDENTITY_TAILNET_IP:-}" ]]; then
+    if [[ ! "$OE_IDENTITY_TAILNET_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+        echo 'OE_IDENTITY_TAILNET_IP deve contenere un indirizzo IPv4.' >&2
+        exit 2
+    fi
+    authority=${issuer#https://}
+    authority=${authority%%/*}
+    host=${authority%%:*}
+    port=443
+    if [[ "$authority" == *:* ]]; then
+        port=${authority##*:}
+    fi
+    curl_options+=(--noproxy "$host" --resolve "$host:$port:$OE_IDENTITY_TAILNET_IP")
+fi
+
 protocol="$issuer/protocol/openid-connect"
 client_id=order-extractor-console
-device=$(curl --fail --silent --show-error --max-time 15 \
+device=$(curl --fail "${curl_options[@]}" \
     --data-urlencode "client_id=$client_id" --data-urlencode 'scope=openid' \
     "$protocol/auth/device")
 device_code=$(jq -er '.device_code | strings | select(length > 0)' <<< "$device")
@@ -26,7 +42,7 @@ printf 'Apri %s dal PC connesso a Tailscale e inserisci il codice %s.\n' "$url" 
 deadline=$((SECONDS + expires))
 while (( SECONDS + interval < deadline )); do
     sleep "$interval"
-    reply=$(printf '%s' "$device_code" | curl --silent --show-error --max-time 15 \
+    reply=$(printf '%s' "$device_code" | curl "${curl_options[@]}" \
         --data-urlencode "client_id=$client_id" \
         --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:device_code' \
         --data-urlencode 'device_code@-' "$protocol/token")
