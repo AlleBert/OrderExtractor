@@ -1,0 +1,4 @@
+numero_riga;articolo;lotto;descrizione;quantita;prezzo_unitario
+1;00042;;Vite M6 zincata;100;0.25
+2;ART003;L250;Bullone M10;200;0.45
+3;A-0009;L007;Rondella piana;12;1.75

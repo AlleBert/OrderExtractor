@@ -1,0 +1,18 @@
+[project]
+name = "order-extractor"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.141.1", "uvicorn==0.52.1", "python-multipart==0.0.32",
+  "pdfplumber==0.11.9", "pypdfium2==5.13.0", "rapidfuzz==3.14.3",
+  "cryptography==50.0.0", "PyJWT==2.15.1", "httpx==0.28.1",
+  "alembic==1.18.4", "sqlalchemy==2.0.46", "psycopg[binary]==3.3.2", "platformdirs==4.5.1",
+  "tuf==7.0.1", "filelock==4.3.1", "pywebview==6.1; sys_platform == 'win32'",
+]
+
+[dependency-groups]
+dev = ["pytest==9.0.2", "reportlab==4.4.9", "playwright==1.62.0", "ruff==0.15.0"]
+windows = ["pyinstaller==6.19.0; sys_platform == 'win32'"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

@@ -1,0 +1,11 @@
+services:
+  api:
+    environment:
+      OE_UPDATES_ROOT: /srv/order-extractor-updates
+    volumes:
+      - type: bind
+        source: ${OE_HOST_UPDATES_ROOT:?}
+        target: /srv/order-extractor-updates
+        read_only: true
+        bind:
+          create_host_path: false

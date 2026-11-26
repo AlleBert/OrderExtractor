@@ -1,0 +1,125 @@
+name: Test and release
+on:
+  push:
+    branches: ['**']
+    tags: ['v*-preview']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
+        env:
+          POSTGRES_USER: order
+          POSTGRES_PASSWORD: synthetic-ci-only
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      OE_TEST_POSTGRES: postgresql+psycopg://order:synthetic-ci-only@127.0.0.1:5432/order
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: python -m pip install uv==0.13.9
+      - run: uv sync --locked
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+      - run: uv run --locked playwright install --with-deps chromium
+      - run: npm --prefix frontend ci
+      - run: npm --prefix frontend run build
+      - run: uv run --locked ruff check .
+      - run: OE_DATABASE="$OE_TEST_POSTGRES" uv run --locked alembic upgrade head
+      - run: uv run --locked python -m pytest -q
+  windows-worker:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - run: python -m pip install uv==0.13.9
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest tests/test_worker_limits.py -k cancel -q
+      - run: uv run --locked python -m pytest tests/test_windows_appcontainer.py -q
+  windows-installer:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: python -m pip install uv==0.13.9
+      - name: Verify release version
+        run: |
+          $version = python -c "from order_extractor import VERSION; import tomllib; assert VERSION == tomllib.load(open('pyproject.toml','rb'))['project']['version']; print(VERSION)"
+          if ($LASTEXITCODE -or $version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid version' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -cne "v${version}-preview") {
+            throw 'The tag must match the package version'
+          }
+          "OE_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Install Windows build dependencies
+        run: ./installer/ci-dependencies.ps1 -ToolDirectory (Join-Path $env:RUNNER_TEMP 'order-extractor-tools')
+      - name: Build local preview
+        run: ./installer/build.ps1 -LocalPreview -TesseractDirectory $env:OE_CI_TESSERACT -InnoCompiler $env:OE_CI_INNO
+      - name: Install and verify packaged application
+        run: |
+          $version = $env:OE_RELEASE_VERSION
+          $installer = Resolve-Path "dist/installer/OrderExtractor-$version-x64.exe"
+          $log = Join-Path (Get-Location) 'dist/installer/install.log'
+          $setup = Start-Process -FilePath $installer.Path -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`""
+          ) -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { Get-Content $log; throw "Installer exit $($setup.ExitCode)" }
+          ./installer/verify.ps1 -ReleaseVersion $version -InstallerPath $installer.Path `
+            -ReportPath 'dist/installer/verification.json'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: OrderExtractor-Windows-x64
+          if-no-files-found: error
+          path: |
+            dist/installer/OrderExtractor-*-x64.exe
+            dist/installer/SHA256SUMS.txt
+            dist/installer/verification.json
+  publish-preview:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [linux, windows-worker, windows-installer]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: OrderExtractor-Windows-x64
+          path: release-assets
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          (cd release-assets && sha256sum -c SHA256SUMS.txt)
+          notes='Anteprima locale per Windows 11 x64. Scarica OrderExtractor-*-x64.exe. L’installer è senza firma Authenticode. L’app elabora i PDF sul dispositivo e attiva automaticamente una licenza demo locale. Richiede Microsoft Edge WebView2.'
+          if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then
+            if [[ "$draft" != true ]]; then
+              echo 'La release è già pubblicata. I file di una release pubblicata sono immutabili per questo workflow.'
+              exit 1
+            fi
+            gh release upload "$TAG" release-assets/* --clobber
+            gh release edit "$TAG" --draft=false --prerelease --latest=false --notes "$notes"
+          else
+            gh release create "$TAG" release-assets/* --verify-tag --prerelease --latest=false \
+              --title "Order Extractor ${TAG#v}" --notes "$notes"
+          fi

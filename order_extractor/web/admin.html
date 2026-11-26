@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Order Extractor · Amministrazione</title><link rel="stylesheet" href="/assets/app.css"><script src="/assets/admin.js" defer></script></head>
+<body><header class="topbar"><strong>Order Extractor</strong><span>Amministrazione</span></header><main class="admin-main">
+  <div class="page-heading"><div><h1>Gestione licenze</h1><p>Clienti, licenze, postazioni attivate e registro attività.</p></div></div>
+  <section class="panel settings-card"><form id="session"><label>Token di accesso<input type="password" id="token" required autocomplete="off"></label><button class="button primary">Accedi</button><button class="button outline" type="button" id="exit" hidden>Esci</button></form></section>
+  <p id="error" class="notice error" role="alert" hidden></p>
+  <div id="tools" hidden>
+    <nav class="tabs" aria-label="Risorse"><button class="button outline" data-resource="customers">Clienti</button><button class="button outline" data-resource="licenses">Licenze</button><button class="button outline" data-resource="installations">Postazioni</button><button class="button outline" data-resource="events">Diagnostica</button><button class="button outline" data-resource="audit">Registro</button></nav>
+    <section class="panel settings-card" id="customer" hidden><h2>Crea cliente</h2><form><label>Ragione sociale<input name="name" required maxlength="180"></label><button class="button primary">Crea</button></form></section>
+    <section class="panel settings-card" id="license" hidden><h2>Genera seriale</h2><form><label>Cliente<select name="customer_id" required></select></label><label>Posti<input type="number" name="seats" value="1" min="1" max="1000" required></label><label>Giorni offline<input type="number" name="offline_days" value="7" min="1" max="7" required></label><label>Canale<select name="channel"><option>stable</option><option>beta</option><option>dev</option></select></label><button class="button primary">Genera</button></form><pre id="serial" hidden></pre></section>
+    <section class="panel" aria-label="Risultati"><div id="results"></div></section>
+  </div>
+</main></body></html>

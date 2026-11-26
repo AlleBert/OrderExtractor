@@ -1,0 +1,13 @@
+.venv
+frontend/node_modules
+__pycache__
+**/__pycache__
+.git
+.env
+build
+dist
+tests
+fixtures
+.uv-cache
+.demo-data
+.demo-venv

@@ -1,0 +1,825 @@
+{
+  "environment": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "ocr": "tesseract 5.5.0",
+  "ocr_languages": "eng",
+  "percentile_method": "P95 nearest rank across individual page timings. Field matches use row order.",
+  "groups": {
+    "digital": {
+      "documents": 20,
+      "perfect": 20,
+      "critical_matches": 75,
+      "rows_expected": 75,
+      "matches": {
+        "article": 75,
+        "lot": 75,
+        "description": 75,
+        "quantity": 75,
+        "unit_price": 75
+      },
+      "ocr_conflicts": 0,
+      "p50_seconds_per_page": 0.045,
+      "p95_seconds_per_page": 0.06
+    },
+    "scan": {
+      "documents": 7,
+      "perfect": 5,
+      "critical_matches": 21,
+      "rows_expected": 21,
+      "matches": {
+        "article": 21,
+        "lot": 19,
+        "description": 21,
+        "quantity": 21,
+        "unit_price": 21
+      },
+      "ocr_conflicts": 6,
+      "p50_seconds_per_page": 1.442,
+      "p95_seconds_per_page": 2.197
+    },
+    "mixed": {
+      "documents": 3,
+      "perfect": 3,
+      "critical_matches": 18,
+      "rows_expected": 18,
+      "matches": {
+        "article": 18,
+        "lot": 18,
+        "description": 18,
+        "quantity": 18,
+        "unit_price": 18
+      },
+      "ocr_conflicts": 3,
+      "p50_seconds_per_page": 0.68,
+      "p95_seconds_per_page": 2.157
+    }
+  },
+  "cases": [
+    {
+      "file": "ordine-01.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0471,
+      "page_seconds": [
+        0.046
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-02.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0443,
+      "page_seconds": [
+        0.0436
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-03.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.052,
+      "page_seconds": [
+        0.0507
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-04.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0498,
+      "page_seconds": [
+        0.0492
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-05.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0473,
+      "page_seconds": [
+        0.0467
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-06.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0467,
+      "page_seconds": [
+        0.0461
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-07.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0447,
+      "page_seconds": [
+        0.0441
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-08.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0449,
+      "page_seconds": [
+        0.0443
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-09.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0632,
+      "page_seconds": [
+        0.0625
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-10.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0459,
+      "page_seconds": [
+        0.0452
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-11.pdf",
+      "category": "digital",
+      "pages": 2,
+      "seconds": 0.1077,
+      "page_seconds": [
+        0.0472,
+        0.06
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF",
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-12.pdf",
+      "category": "digital",
+      "pages": 2,
+      "seconds": 0.0877,
+      "page_seconds": [
+        0.0452,
+        0.0419
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF",
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-13.pdf",
+      "category": "digital",
+      "pages": 2,
+      "seconds": 0.0859,
+      "page_seconds": [
+        0.0436,
+        0.0417
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF",
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-14.pdf",
+      "category": "digital",
+      "pages": 2,
+      "seconds": 0.0915,
+      "page_seconds": [
+        0.0454,
+        0.0453
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF",
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-15.pdf",
+      "category": "digital",
+      "pages": 2,
+      "seconds": 0.0895,
+      "page_seconds": [
+        0.0461,
+        0.0428
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF",
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-16.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0467,
+      "page_seconds": [
+        0.0453
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-17.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0487,
+      "page_seconds": [
+        0.048
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-18.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0447,
+      "page_seconds": [
+        0.0437
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-19.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 1.6226,
+      "page_seconds": [
+        1.6216
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-20.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 1.4426,
+      "page_seconds": [
+        1.4416
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-21.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 1.2149,
+      "page_seconds": [
+        1.2143
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-22.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 2.1998,
+      "page_seconds": [
+        2.1971
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-23.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 1.5441,
+      "page_seconds": [
+        1.5434
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": false,
+      "matches": {
+        "article": 3,
+        "lot": 2,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-24.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 1.3932,
+      "page_seconds": [
+        1.3926
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": false,
+      "matches": {
+        "article": 3,
+        "lot": 2,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-25.pdf",
+      "category": "scan",
+      "pages": 1,
+      "seconds": 1.2978,
+      "page_seconds": [
+        1.297
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-26.pdf",
+      "category": "mixed",
+      "pages": 2,
+      "seconds": 2.1992,
+      "page_seconds": [
+        0.0417,
+        2.1569
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "testo PDF",
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-27.pdf",
+      "category": "mixed",
+      "pages": 2,
+      "seconds": 1.3738,
+      "page_seconds": [
+        0.0443,
+        1.3288
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "testo PDF",
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-28.pdf",
+      "category": "mixed",
+      "pages": 2,
+      "seconds": 1.3602,
+      "page_seconds": [
+        0.045,
+        1.3143
+      ],
+      "rows_expected": 6,
+      "rows_found": 6,
+      "critical_matches": 6,
+      "perfect": true,
+      "matches": {
+        "article": 6,
+        "lot": 6,
+        "description": 6,
+        "quantity": 6,
+        "unit_price": 6
+      },
+      "ocr_conflicts": 1,
+      "validation_issues": 1,
+      "engine": [
+        "testo PDF",
+        "OCR Tesseract"
+      ]
+    },
+    {
+      "file": "ordine-29.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.0488,
+      "page_seconds": [
+        0.0482
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    },
+    {
+      "file": "ordine-30.pdf",
+      "category": "digital",
+      "pages": 1,
+      "seconds": 0.047,
+      "page_seconds": [
+        0.0464
+      ],
+      "rows_expected": 3,
+      "rows_found": 3,
+      "critical_matches": 3,
+      "perfect": true,
+      "matches": {
+        "article": 3,
+        "lot": 3,
+        "description": 3,
+        "quantity": 3,
+        "unit_price": 3
+      },
+      "ocr_conflicts": 0,
+      "validation_issues": 0,
+      "engine": [
+        "testo PDF"
+      ]
+    }
+  ]
+}
