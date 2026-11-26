@@ -14,3 +14,4 @@ node_modules/
 .demo-venv/
 
 .env.identity
+.license-keys/

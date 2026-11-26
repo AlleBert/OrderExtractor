@@ -43,6 +43,16 @@ Per applicare la stessa risoluzione nel container licenze, imposta in `.env` `OE
 
 ## 3. Collauda la console prima di esporre l’API
 
+Per una prima installazione senza `.env`, puoi generare chiavi e configurazione in locale con lo script di inizializzazione. Ottieni prima il token amministrativo con lo script precedente e conservalo nella variabile di shell `TOKEN`. L’inizializzazione estrae il `sub` dai claim controllati per configurare il proprietario. L’API convalida firma e scadenza del token quando accedi. Il comando richiede `sudo` per assegnare la chiave privata all’UID del container.
+
+```sh
+printf '%s' "$TOKEN" | ./scripts/init-tailnet-licensing.sh \
+  https://server.tailnet.ts.net:10444/realms/order-extractor "$(tailscale ip -4)"
+docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml \
+  -f infra/tailscale.compose.yaml -f infra/tailscale-keycloak.compose.yaml \
+  up --build -d --wait --wait-timeout 180
+```
+
 Avvia lo [stack licenze](tailscale-licensing.md#accesso-riservato-e-mfa) e usa la porta privata della console:
 
 ```sh
@@ -53,7 +63,7 @@ Verifica dall’applicazione in container la risoluzione DNS e l’HTTPS del JWK
 
 ```sh
 docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml \
-  -f infra/tailscale.compose.yaml exec -T api python -c \
+  -f infra/tailscale.compose.yaml -f infra/tailscale-keycloak.compose.yaml exec -T api python -c \
   'import os, urllib.request; print(urllib.request.urlopen(os.environ["OE_OIDC_JWKS"], timeout=5).status)'
 ```
 
