@@ -131,6 +131,8 @@ def environment(directory):
     paths = {"TEMP": str(directory), "TMP": str(directory), "TMPDIR": str(directory),
              "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1"}
     values = {key.upper(): value for key, value in os.environ.items() if key.upper() in ENV_NAMES}
+    # Windows uses this location to initialize the AppContainer profile.
+    values["LOCALAPPDATA"] = os.environ["LOCALAPPDATA"]
     # Runtime paths are absolute in the frozen package. Avoid inheriting a user search path.
     values["PATH"] = str(Path(values["SYSTEMROOT"]) / "System32")
     values.update(paths)
