@@ -32,7 +32,8 @@ from .updates import Updates
 
 
 def run_pdf_worker(arguments):
-    if (os.name != "nt" or not getattr(sys, "frozen", False) or len(arguments) != 1):
+    if (os.name != "nt" or not getattr(sys, "frozen", False) or not arguments
+            or arguments[1:] not in ([], ["--trace-probe"])):
         raise SystemExit(2)
     from .local import worker
     from .windows_appcontainer import validate_token
@@ -53,7 +54,7 @@ def check_packaged_worker():
     with TemporaryDirectory(prefix="oe-probe-") as name:
         work = Path(name)
         shutil.copyfile(fixture, work / "source.pdf")
-        process = AppContainerProcess(Path(sys.executable), ["--pdf-worker", str(work)], work)
+        process = AppContainerProcess(Path(sys.executable), ["--pdf-worker", str(work), "--trace-probe"], work)
         try:
             deadline = time.monotonic() + 20
             while process.is_alive() and time.monotonic() < deadline:
@@ -67,6 +68,9 @@ def check_packaged_worker():
                 raise RuntimeError("Il worker PDF del pacchetto non supera la prova sintetica.")
         finally:
             process.stop()
+            diagnostic = work / "probe.log"
+            if diagnostic.is_file():
+                print(read_artifact(diagnostic, 16384).decode("utf-8", errors="replace"), flush=True)
 
 
 def check_webview(url, ready, storage):
@@ -150,6 +154,7 @@ def main():
     handles = []
     stop = threading.Event()
     updates = None
+    demo_dir = demo_control = None
     installation = packaged_installation() if not args.probe_version else None
     payload_lock = FileLock(str(installation / "payload.lock"), timeout=0) if installation is not None else None
     try:
@@ -166,10 +171,11 @@ def main():
             demo_root = Path(demo_dir.name)
             key = demo_key()
             admin = secrets.token_urlsafe(32)
-            control_url, server, thread = serve(lambda _: create_control(
+            demo_control = create_control(
                 "sqlite:///" + (demo_root / "central.sqlite").as_posix(),
                 key, secrets.token_bytes(32), demo_token=admin,
-            ))
+            )
+            control_url, server, thread = serve(lambda _: demo_control)
             handles.append((server, thread))
             headers = {"Authorization": "Bearer " + admin}
             with httpx.Client(timeout=5, trust_env=False) as setup:
@@ -263,12 +269,17 @@ def main():
             while thread.is_alive():
                 thread.join(.5)
     except (KeyboardInterrupt, Timeout):
-        pass
+        if args.probe_version:
+            raise
     finally:
         stop.set()
         for server, thread in reversed(handles):
             server.should_exit = True
             thread.join(6)
+        if demo_control is not None:
+            demo_control.state.engine.dispose()
+        if demo_dir is not None:
+            demo_dir.cleanup()
         if payload_lock is not None:
             payload_lock.release()
 
