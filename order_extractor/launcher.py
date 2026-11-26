@@ -3,6 +3,7 @@ import json
 import multiprocessing
 import os
 import random
+import re
 import secrets
 import shutil
 import socket
@@ -15,6 +16,7 @@ import webbrowser
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import urlsplit
 
 import httpx
 import jwt
@@ -110,10 +112,25 @@ def serve(app_factory, host="127.0.0.1", port=0):
     raise RuntimeError("Il servizio locale non si è avviato.")
 
 
-def admin_verifier():
-    issuer, audience, jwks_url = (os.environ[name] for name in ("OE_OIDC_ISSUER", "OE_OIDC_AUDIENCE", "OE_OIDC_JWKS"))
+def admin_jwks_url():
+    issuer = os.environ["OE_OIDC_ISSUER"]
+    jwks_url = os.environ["OE_OIDC_JWKS"]
     if not issuer.startswith("https://") or not jwks_url.startswith("https://"):
         raise ValueError("Issuer e JWKS devono usare HTTPS.")
+    if os.environ.get("OE_OIDC_DOCKER_JWKS") != "1":
+        return jwks_url
+
+    issuer_path = urlsplit(issuer).path
+    suffix = "/protocol/openid-connect/certs"
+    if not re.fullmatch(r"/realms/[A-Za-z0-9_-]+", issuer_path) or jwks_url != issuer + suffix:
+        raise ValueError("Il JWKS interno richiede l’endpoint canonico del realm Keycloak.")
+    return f"http://order-extractor-keycloak:8080{issuer_path}{suffix}"
+
+
+def admin_verifier():
+    issuer = os.environ["OE_OIDC_ISSUER"]
+    audience = os.environ["OE_OIDC_AUDIENCE"]
+    jwks_url = admin_jwks_url()
     owner_subject = os.environ.get("OE_ADMIN_SUBJECT")
     keys = jwt.PyJWKClient(jwks_url, timeout=5)
 

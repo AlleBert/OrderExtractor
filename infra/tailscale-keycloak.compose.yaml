@@ -1,4 +1,12 @@
 services:
   api:
-    extra_hosts:
-      - "${OE_IDENTITY_TAILNET_HOST:?Imposta il nome Tailscale privato di Keycloak}=${OE_IDENTITY_TAILNET_IP:?Imposta l'IPv4 Tailscale di Keycloak}"
+    environment:
+      OE_OIDC_DOCKER_JWKS: "1"
+    networks:
+      - default
+      - oidc
+
+networks:
+  oidc:
+    name: order-extractor-oidc
+    external: true

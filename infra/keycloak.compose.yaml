@@ -31,6 +31,11 @@ services:
       KC_HEALTH_ENABLED: "true"
     ports:
       - "127.0.0.1:18102:8080"
+    networks:
+      default:
+      oidc:
+        aliases:
+          - order-extractor-keycloak
     depends_on:
       identity-db:
         condition: service_healthy
@@ -54,3 +59,8 @@ services:
 
 volumes:
   identity-data:
+
+networks:
+  oidc:
+    name: order-extractor-oidc
+    internal: true

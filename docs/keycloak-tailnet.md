@@ -39,7 +39,9 @@ OE_IDENTITY_TAILNET_IP="$(tailscale ip -4)" \
   ./scripts/keycloak-admin-token.sh https://server.tailnet.ts.net:10444/realms/order-extractor
 ```
 
-Per applicare la stessa risoluzione nel container licenze, imposta in `.env` `OE_IDENTITY_TAILNET_HOST` al nome Tailscale di Keycloak senza porta e `OE_IDENTITY_TAILNET_IP` all’IPv4 Tailscale del nodo. Aggiungi `-f infra/tailscale-keycloak.compose.yaml` dopo `-f infra/tailscale.compose.yaml` nei comandi Compose dello stack licenze, incluso il controllo JWKS qui sotto. Il file aggiuntivo modifica la risoluzione del nome solo nel container `api`. Il controllo del JWKS conferma anche la raggiungibilità di Serve dal container.
+Lo stack Keycloak crea la rete interna Docker `order-extractor-oidc`. Il file `infra/tailscale-keycloak.compose.yaml` collega l’API a questa rete per leggere il JWKS direttamente da Keycloak via HTTP. Il browser usa HTTPS su Tailscale Serve e l’API verifica l’issuer HTTPS, la firma, l’audience, l’MFA e il proprietario. Aggiungi solo Keycloak e l’API licenze a questa rete.
+
+Se hai già avviato entrambi gli stack con una revisione precedente, aggiorna il repository e riapplica prima lo stack Keycloak con il comando del punto 1. Poi ricompila lo stack licenze come al punto 3. Riusa i file `.env.identity` e `.env` esistenti.
 
 ## 3. Collauda la console prima di esporre l’API
 
@@ -47,27 +49,27 @@ Per una prima installazione senza `.env`, puoi generare chiavi e configurazione 
 
 ```sh
 printf '%s' "$TOKEN" | ./scripts/init-tailnet-licensing.sh \
-  https://server.tailnet.ts.net:10444/realms/order-extractor "$(tailscale ip -4)"
+  https://server.tailnet.ts.net:10444/realms/order-extractor
 docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml \
   -f infra/tailscale.compose.yaml -f infra/tailscale-keycloak.compose.yaml \
   up --build -d --wait --wait-timeout 180
 ```
 
-Avvia lo [stack licenze](tailscale-licensing.md#accesso-riservato-e-mfa) e usa la porta privata della console:
+Verifica dall’API in container che le chiavi del realm siano raggiungibili. Esegui il comando dalla radice del repository con lo stack licenze già avviato.
+
+```sh
+docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml \
+  -f infra/tailscale.compose.yaml -f infra/tailscale-keycloak.compose.yaml exec -T api python -c \
+  'import jwt; from order_extractor.launcher import admin_jwks_url; print("JWKS:", len(jwt.PyJWKClient(admin_jwks_url(), timeout=8).get_signing_keys()), "chiavi di firma")'
+```
+
+Riserva l’accesso a TCP 10443 alla sola identità Tailscale del proprietario e pubblica la console nel tailnet.
 
 ```sh
 sudo tailscale serve --bg --https=10443 http://127.0.0.1:18100
 ```
 
-Verifica dall’applicazione in container la risoluzione DNS e l’HTTPS del JWKS. Esegui il comando dalla radice del repository con la configurazione licenze già caricata.
-
-```sh
-docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml \
-  -f infra/tailscale.compose.yaml -f infra/tailscale-keycloak.compose.yaml exec -T api python -c \
-  'import os, urllib.request; print(urllib.request.urlopen(os.environ["OE_OIDC_JWKS"], timeout=5).status)'
-```
-
-Verifica che la risposta sia 200 e che la console accetti il token dopo OTP. Prova anche il rifiuto di token scaduti e di altri utenti. Quando questi controlli sono passati, esponi la sola API filtrata ai client esterni.
+Verifica che la console accetti il token dopo OTP. Prova anche il rifiuto di token scaduti e di altri utenti. Quando questi controlli sono passati, esponi la sola API filtrata ai client esterni.
 
 ```sh
 sudo tailscale funnel --bg --https=10000 http://127.0.0.1:18101

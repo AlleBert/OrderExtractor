@@ -3,15 +3,9 @@ set -euo pipefail
 umask 077
 
 issuer=${1:-}
-tailnet_ip=${2:-}
 if [[ ! -f infra/tailscale-keycloak.compose.yaml ||
-      ! "$issuer" =~ ^https://([A-Za-z0-9.-]+)(:[0-9]+)?/realms/[A-Za-z0-9_-]+$ ]]; then
+      ! "$issuer" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/realms/[A-Za-z0-9_-]+$ ]]; then
     echo 'Avvia dalla radice del repository indicando l’issuer HTTPS di Keycloak.' >&2
-    exit 2
-fi
-host=${BASH_REMATCH[1]}
-if [[ ! "$tailnet_ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
-    echo 'Indica l’IPv4 Tailscale del server come secondo argomento.' >&2
     exit 2
 fi
 if [[ -e .env || -L .env ]]; then
@@ -71,8 +65,6 @@ OE_OIDC_ISSUER=$issuer
 OE_OIDC_AUDIENCE=order-extractor-console
 OE_OIDC_JWKS=$issuer/protocol/openid-connect/certs
 OE_ADMIN_SUBJECT=$subject
-OE_IDENTITY_TAILNET_HOST=$host
-OE_IDENTITY_TAILNET_IP=$tailnet_ip
 ENV
 sudo chown 10001:10001 "$private"
 ln -T -- "$pending" .env

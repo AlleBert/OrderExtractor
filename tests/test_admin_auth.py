@@ -4,7 +4,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from order_extractor.launcher import admin_verifier
+from order_extractor.launcher import admin_jwks_url, admin_verifier
 
 ISSUER = "https://auth.example.test"
 AUDIENCE = "order-extractor-test"
@@ -32,3 +32,28 @@ def test_private_console_requires_the_configured_owner(monkeypatch, subject, rol
     else:
         with pytest.raises(ValueError):
             verify(token)
+
+
+@pytest.mark.parametrize(("docker_jwks", "expected_host"), [
+    ("0", "https://auth.example.test:10444"),
+    ("1", "http://order-extractor-keycloak:8080"),
+])
+def test_admin_jwks_uses_the_configured_transport(monkeypatch, docker_jwks, expected_host):
+    path = "/realms/test/protocol/openid-connect/certs"
+    monkeypatch.setenv("OE_OIDC_ISSUER", "https://auth.example.test:10444/realms/test")
+    monkeypatch.setenv("OE_OIDC_JWKS", "https://auth.example.test:10444" + path)
+    monkeypatch.setenv("OE_OIDC_DOCKER_JWKS", docker_jwks)
+    assert admin_jwks_url() == expected_host + path
+
+
+@pytest.mark.parametrize("jwks_url", [
+    "https://auth.example.test/realms/other/protocol/openid-connect/certs",
+    "https://another.example.test/realms/test/protocol/openid-connect/certs",
+    "http://auth.example.test/realms/test/protocol/openid-connect/certs",
+])
+def test_docker_jwks_requires_the_canonical_keycloak_endpoint(monkeypatch, jwks_url):
+    monkeypatch.setenv("OE_OIDC_ISSUER", "https://auth.example.test/realms/test")
+    monkeypatch.setenv("OE_OIDC_JWKS", jwks_url)
+    monkeypatch.setenv("OE_OIDC_DOCKER_JWKS", "1")
+    with pytest.raises(ValueError):
+        admin_jwks_url()
