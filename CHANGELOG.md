@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+Nuovo logo nell’app, nella dashboard e nell’installer Windows. Il manuale spiega come accedere all’amministrazione e provare la creazione di seriali.
+
 ## 0.1.1
 
 L’installer Windows include un’attestazione di provenienza GitHub Actions. La pipeline verifica l’attestazione e lo SHA-256 prima di pubblicare la prerelease.

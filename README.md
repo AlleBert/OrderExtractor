@@ -8,6 +8,8 @@ Apri [GitHub Releases](https://github.com/AlleBert/OrderExtractor/releases), sce
 
 L’anteprima crea e attiva una licenza demo locale, include Tesseract e offre un ordine sintetico per la prima prova. Usa **Usa l’ordine demo** oppure carica un PDF locale.
 
+Per provare la creazione di seriali e la gestione delle postazioni, avvia la demo dai sorgenti. [Accesso alla dashboard](docs/operations.md#dashboard)
+
 ## Prova l’app dai sorgenti
 
 Servono Python 3.12, uv, un browser, libseccomp su Linux e Tesseract con il modello inglese `eng`. Per usare anche il modello italiano installa `ita` e imposta `OE_OCR_LANGS=ita+eng`. L’app non scarica modelli. Da terminale nella radice del progetto:

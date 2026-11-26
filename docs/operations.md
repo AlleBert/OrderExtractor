@@ -2,7 +2,24 @@
 
 ## Dashboard
 
-Per la demo, usa il token generato dal launcher. Per una prova di staging, configura un issuer OIDC con access token firmati RS256 o ES256, audience dedicata e claim `amr` con `mfa`. Il provider deve emettere i ruoli applicativi in `roles`. Il flusso corrente richiede di inserire manualmente nella dashboard il token, che rimane nella memoria della scheda. `owner` e `admin` possono creare e modificare clienti e licenze, mentre `support` può consultare. Copia il seriale quando viene generato. La revoca di una postazione libera un posto. Viene rilevata alla prossima verifica online. Un dispositivo scollegato può proseguire fino alla scadenza del lease.
+### Prova locale dai sorgenti
+
+Da PowerShell, nella radice del repository, esegui questi comandi e lascia aperto il terminale:
+
+```powershell
+uv sync --locked
+uv run --locked python -m order_extractor demo
+```
+
+Apri nel browser l’indirizzo stampato accanto a **Dashboard demo**. Incolla il valore di **Token admin demo** nel campo **Token di accesso** e seleziona **Accedi**. In **Clienti**, crea un cliente. In **Licenze**, selezionalo, indica il numero di postazioni e genera il seriale. Copialo quando viene mostrato. In **Postazioni** trovi i dispositivi che hanno già attivato una licenza, con stato, versione e ultimo contatto.
+
+I seriali e le postazioni di questa prova appartengono al servizio demo temporaneo e vanno persi alla chiusura del processo. L’installer pubblico **Order Extractor Preview** attiva una licenza demo locale per chi lo installa.
+
+### Amministrazione per clienti reali
+
+Distribuisci il server licenze su un dominio HTTPS e apri la pagina iniziale di quel dominio. La dashboard accetta un access token emesso dal tuo provider OIDC, firmato con RS256 o ES256. Configura l’audience, richiedi MFA e usa i claim `amr` con `mfa` e `roles` con il ruolo assegnato. La dashboard chiede di incollare il token e lo conserva solo nella memoria della scheda. I ruoli `owner` e `admin` possono creare clienti, emettere seriali e revocare postazioni. Il ruolo `support` può consultare i record.
+
+Per attivare questi seriali sulle postazioni, distribuisci il client Windows configurato con l’URL HTTPS del server e la chiave pubblica delle licenze. Gli utenti dell’anteprima pubblica non compaiono nella tua dashboard.
 
 ## Staging Linux
 

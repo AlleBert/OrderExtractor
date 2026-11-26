@@ -17,6 +17,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist\installer
 OutputBaseFilename=OrderExtractor-{#ReleaseVersion}-x64
+SetupIconFile=order-extractor.ico
 Compression=lzma2
 SolidCompression=yes
 UninstallDisplayIcon={app}\OrderExtractorLauncher.exe

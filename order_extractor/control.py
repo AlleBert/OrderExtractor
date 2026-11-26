@@ -153,7 +153,7 @@ def create_control(database, signing_key, pepper, *, demo_token=None, admin_auth
         else:
             response = await call_next(request)
         response.headers.update({"Cache-Control": "no-store", "X-Request-ID": request_id,
-            "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+            "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
             "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"})
         return response
 
@@ -215,7 +215,7 @@ def create_control(database, signing_key, pepper, *, demo_token=None, admin_auth
 
     @app.get("/assets/{name}")
     def asset(name: str):
-        if name not in {"admin.js", "app.css"}:
+        if name not in {"admin.js", "app.css", "logo.png"}:
             raise HTTPException(404)
         return FileResponse(web / name)
 

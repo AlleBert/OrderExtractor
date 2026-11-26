@@ -406,7 +406,7 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
 
     @app.get("/assets/{name}")
     def asset(name: str):
-        if name not in {"app.js", "app.css"}:
+        if name not in {"app.js", "app.css", "logo.png"}:
             raise HTTPException(404)
         return FileResponse(ROOT / name)
 

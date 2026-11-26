@@ -14,7 +14,6 @@ const date = value => value ? new Intl.DateTimeFormat("it-IT", {dateStyle: "medi
 
 function Icon({name, size=20}) {
   const paths = {
-    layers: <><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></>,
     file: <><path d="M6 3h8l4 4v14H6zM14 3v5h5"/><path d="M9 12h6m-6 4h6"/></>,
     upload: <><path d="M12 16V4m-4 4 4-4 4 4M4 15v5h16v-5"/></>,
     history: <><path d="M3 12a9 9 0 1 1 3 7M3 5v7h7m2-5v5l3 2"/></>,
@@ -197,7 +196,7 @@ function App() {
 
   return <div className="shell">
     <aside className="sidebar">
-      <div className="brand"><span className="brand-icon"><Icon name="layers"/></span><strong>Order<br/>Extractor</strong></div>
+      <div className="brand"><img className="brand-icon" src="/assets/logo.png" alt="" width="42" height="42"/><strong>Order<br/>Extractor</strong></div>
       <nav aria-label="Navigazione">
         {[["work", "file", "Estrazione"], ["history", "history", "Storico"], ["settings", "settings", "Impostazioni"]].map(([id, icon, text]) =>
           <button key={id} className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => {setTab(id); setError("");}}>

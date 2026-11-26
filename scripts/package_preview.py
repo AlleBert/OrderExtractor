@@ -11,7 +11,7 @@ ROOT_FILES = (
 SOURCE_FOLDERS = (".github", "docs", "fixtures", "frontend", "infra", "installer",
                   "migrations", "order_extractor", "packages", "scripts", "tests")
 IGNORE_NAMES = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache"}
-TYPES = {".css", ".html", ".ini", ".js", ".json", ".jsx", ".md", ".pdf", ".ps1", ".py",
+TYPES = {".css", ".html", ".ico", ".ini", ".js", ".json", ".jsx", ".md", ".pdf", ".png", ".ps1", ".py",
          ".sh", ".toml", ".txt", ".yaml", ".yml", ".iss", ".mako"}
 
 

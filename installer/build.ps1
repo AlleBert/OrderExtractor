@@ -79,9 +79,9 @@ try {
     npm run build
     if ($LASTEXITCODE) { throw "Build frontend non riuscita" }
 } finally { Pop-Location }
-uv run --locked --group windows pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$ocr;order_extractor/ocr" --add-data "$workerProbe;order_extractor" @modeData installer/desktop.py
+uv run --locked --group windows pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --icon installer/order-extractor.ico --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$ocr;order_extractor/ocr" --add-data "$workerProbe;order_extractor" @modeData installer/desktop.py
 if ($LASTEXITCODE) { throw "Packaging PyInstaller non riuscito" }
-uv run --locked --group windows pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --paths . installer/supervisor.py
+uv run --locked --group windows pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --icon installer/order-extractor.ico --paths . installer/supervisor.py
 if ($LASTEXITCODE) { throw "Build launcher non riuscita" }
 Sign-ReleaseFile "dist\OrderExtractor\OrderExtractor.exe"
 Sign-ReleaseFile "dist\OrderExtractorLauncher\OrderExtractorLauncher.exe"
