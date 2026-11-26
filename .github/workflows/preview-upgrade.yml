@@ -37,7 +37,8 @@ jobs:
           $name = "OrderExtractor-$version-x64.exe"
           $assets = "https://github.com/AlleBert/OrderExtractor/releases/download/v$version-preview"
           Invoke-WebRequest "$assets/$name" -OutFile $name
-          $sums = (Invoke-WebRequest "$assets/SHA256SUMS.txt").Content
+          Invoke-WebRequest "$assets/SHA256SUMS.txt" -OutFile SHA256SUMS.txt
+          $sums = Get-Content -LiteralPath SHA256SUMS.txt -Raw
           $actual = (Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash
           if ($sums -notmatch "(?im)^${actual}\s+$([regex]::Escape($name))\r?$") { throw 'SHA-256 non valido' }
           $setup = Start-Process -FilePath (Resolve-Path $name).Path -ArgumentList @(
