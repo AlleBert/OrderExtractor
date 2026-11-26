@@ -27,6 +27,7 @@ from . import VERSION
 from .control import create_control, demo_key, un64
 from .license import LicenseClient
 from .local import create_local
+from .preview_updates import PreviewUpdates, verifier_path
 from .supervisor import packaged_installation
 from .updates import Updates
 
@@ -157,7 +158,7 @@ def main():
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
     handles = []
     stop = threading.Event()
-    updates = None
+    updates = preview_updates = None
     demo_dir = demo_control = None
     installation = packaged_installation() if not args.probe_version else None
     payload_lock = FileLock(str(installation / "payload.lock"), timeout=0) if installation is not None else None
@@ -196,6 +197,8 @@ def main():
                 licensing = LicenseClient(base / "demo", control_url, key.public_key(), loopback=True)
             if local_preview:
                 licensing.activate(serial_number, "Anteprima locale")
+                if installation is not None and config.get("github_updates") and verifier_path(installation).is_file():
+                    preview_updates = PreviewUpdates(VERSION, installation)
             else:
                 print("Seriale demo:", serial_number, flush=True)
                 print("Dashboard demo:", control_url, flush=True)
@@ -237,7 +240,7 @@ def main():
         ticket = secrets.token_urlsafe(36)
         origin, server, thread = serve(
             lambda origin: create_local(base, origin, ticket, licensing, sample, updates, installation,
-                                        background=not args.probe_version, startup_ready=startup_ready), port=args.port
+                                        background=not args.probe_version, startup_ready=startup_ready, preview_updates=preview_updates), port=args.port
         )
         handles.append((server, thread))
         url = f"{origin}/open?ticket={ticket}"

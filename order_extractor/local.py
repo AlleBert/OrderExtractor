@@ -291,7 +291,7 @@ class Job:
 
 
 def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, installation=None, *,
-                 background=True, startup_ready=None):
+                 background=True, startup_ready=None, preview_updates=None):
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     store = LocalStore(base)
     guard = threading.RLock()
@@ -425,8 +425,8 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
             except (OSError, ValueError, KeyError, TypeError):
                 pass
         return {"version": VERSION, "license": licensing.status(), "sample": sample is not None,
-                "diagnostics": store.diagnostics_enabled(), "updates": updates is not None,
-                "startup_check": startup_ready is not None,
+                "diagnostics": store.diagnostics_enabled(), "updates": updates is not None or preview_updates is not None,
+                "startup_check": startup_ready is not None, "preview_updates": preview_updates is not None,
                 "managed_updates": installation is not None, "update_feedback": feedback,
                 "update_pending": installation is not None and (installation / REQUEST).is_file()}
 
@@ -445,12 +445,19 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
         except ValueError as error:
             raise HTTPException(403, str(error)) from error
 
+    def available_update(package):
+        if preview_updates is not None:
+            if not licensing.status().get("active"):
+                raise HTTPException(403, "Licenza demo non attiva.")
+            return preview_updates.get()
+        channel, credential = update_access()
+        return updates.get(channel, credential, package=package)
+
     @app.post("/api/update/check")
     def check_update():
-        channel, credential = update_access()
         try:
             package = "desktop.zip" if installation is not None else "installer.exe"
-            return {"release": updates.get(channel, credential, package=package)}
+            return {"release": available_update(package)}
         except ValueError as error:
             raise HTTPException(502, str(error)) from error
 
@@ -458,9 +465,8 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
     def schedule_update(selection: UpdateSelection):
         if installation is None:
             raise HTTPException(404, "Installazione integrata non disponibile.")
-        channel, credential = update_access()
         try:
-            release = updates.get(channel, credential, package="desktop.zip")
+            release = available_update("desktop.zip")
         except ValueError as error:
             raise HTTPException(502, str(error)) from error
         if release is None or release["version"] != selection.version:

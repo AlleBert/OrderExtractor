@@ -30,3 +30,10 @@ gh attestation verify .\OrderExtractor-0.1.1-x64.exe --bundle .\provenance.sigst
 ```
 
 Le anteprime sono distribuite senza firma Authenticode. Per un rilascio commerciale, segui la [checklist](release-checklist.md) e usa la [procedura di firma](operations.md#certificato-e-verifica-della-firma) con il certificato e il servizio licenze di produzione.
+
+
+## Aggiornare l’anteprima dall’app
+
+Installa manualmente `0.1.3 Preview` o una versione successiva. Nell’app apri **Impostazioni → Aggiornamenti**, premi **Verifica aggiornamenti**, quindi **Installa al prossimo avvio**. Chiudi e riapri **Order Extractor Preview** dal menu Start. Il launcher scarica il pacchetto desktop, verifica l’attestazione di GitHub Actions e prova l’avvio su una copia dei dati. Dopo la prova trovi l’esito nelle impostazioni.
+
+La pipeline pubblica `desktop-<versione>-x64.zip` e `desktop-provenance.sigstore.jsonl` per il launcher. Il download e la verifica dipendono dall’accesso a GitHub e ai servizi di verifica Sigstore. Per aggiornare il launcher stesso e la sua CLI di verifica, usa l’installer EXE della release. Per riprodurre una build locale con questa funzione, passa `-LocalPreview -GitHubCliDirectory <cartella-zip-estratta>` a `installer/build.ps1` con la CLI di GitHub per Windows x64.

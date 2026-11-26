@@ -43,5 +43,12 @@ $innoSetup = Get-VerifiedInstaller `
 $inno = Join-Path $ToolDirectory 'Inno Setup'
 Invoke-Installer $innoSetup ('/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="' + $inno + '"')
 
+$ghZip = Get-VerifiedInstaller `
+    'https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_windows_amd64.zip' `
+    'd406f442ca0baa3d3e9c695e9cded1aa48e67dad3294b8947e5ab84f980b4844'
+$ghDirectory = Join-Path $ToolDirectory 'github-cli'
+Expand-Archive -LiteralPath $ghZip -DestinationPath $ghDirectory
+"OE_CI_GITHUB_CLI=$ghDirectory" >> $env:GITHUB_ENV
+
 "OE_CI_TESSERACT=$distribution" >> $env:GITHUB_ENV
 "OE_CI_INNO=$(Join-Path $inno 'ISCC.exe')" >> $env:GITHUB_ENV

@@ -380,6 +380,7 @@ function App() {
                 setStatus(current => ({...current,...next}));
               });}}/> Invia diagnostica facoltativa</label>
           </section>{status.updates && <section className="panel settings-card"><h2>Aggiornamenti</h2>
+            {status.preview_updates && <p>Verifica le nuove anteprime su GitHub. L’installazione avviene alla riapertura dell’app.</p>}
             {status.update_feedback && !status.update_pending && <p role="status">{status.update_feedback}</p>}
             {status.update_pending && <p role="status">Aggiornamento confermato. Chiudi e riapri Order Extractor per installarlo.</p>}
             <button className="button outline" disabled={!!busy || !status.license.active} onClick={() => run("Verifica aggiornamenti", async () => {

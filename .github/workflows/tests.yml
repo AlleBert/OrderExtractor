@@ -76,7 +76,7 @@ jobs:
       - name: Install Windows build dependencies
         run: ./installer/ci-dependencies.ps1 -ToolDirectory (Join-Path $env:RUNNER_TEMP 'order-extractor-tools')
       - name: Build local preview
-        run: ./installer/build.ps1 -LocalPreview -TesseractDirectory $env:OE_CI_TESSERACT -InnoCompiler $env:OE_CI_INNO
+        run: ./installer/build.ps1 -LocalPreview -GitHubCliDirectory $env:OE_CI_GITHUB_CLI -TesseractDirectory $env:OE_CI_TESSERACT -InnoCompiler $env:OE_CI_INNO
       - name: Install and verify packaged application
         run: |
           $version = $env:OE_RELEASE_VERSION
@@ -100,6 +100,25 @@ jobs:
         env:
           OE_PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
         run: Copy-Item -LiteralPath $env:OE_PROVENANCE_BUNDLE -Destination dist/installer/provenance.sigstore.jsonl
+      - name: Stage and checksum the desktop update
+        if: github.ref_type == 'tag'
+        run: |
+          $version = $env:OE_RELEASE_VERSION
+          $name = "desktop-$version-x64.zip"
+          Copy-Item -LiteralPath "dist/desktop-$version.zip" -Destination "dist/installer/$name"
+          $digest = (Get-FileHash -LiteralPath "dist/installer/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $name" | Add-Content -LiteralPath dist/installer/SHA256SUMS.txt -Encoding ascii
+      - name: Attest the desktop update
+        if: github.ref_type == 'tag'
+        id: desktop-provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: dist/installer/desktop-${{ env.OE_RELEASE_VERSION }}-x64.zip
+      - name: Include the desktop provenance bundle
+        if: github.ref_type == 'tag'
+        env:
+          OE_DESKTOP_BUNDLE: ${{ steps.desktop-provenance.outputs.bundle-path }}
+        run: Copy-Item -LiteralPath $env:OE_DESKTOP_BUNDLE -Destination dist/installer/desktop-provenance.sigstore.jsonl
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: OrderExtractor-Windows-x64
@@ -109,6 +128,8 @@ jobs:
             dist/installer/SHA256SUMS.txt
             dist/installer/verification.json
             dist/installer/provenance.sigstore.jsonl
+            dist/installer/desktop-*-x64.zip
+            dist/installer/desktop-provenance.sigstore.jsonl
   publish-preview:
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [linux, windows-worker, windows-installer]
@@ -127,13 +148,18 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          installer="release-assets/OrderExtractor-${TAG#v}"
-          installer="${installer%-preview}-x64.exe"
+          version="${TAG#v}"
+          version="${version%-preview}"
+          installer="release-assets/OrderExtractor-$version-x64.exe"
+          desktop="release-assets/desktop-$version-x64.zip"
           (cd release-assets && sha256sum -c SHA256SUMS.txt)
           gh attestation verify "$installer" --bundle release-assets/provenance.sigstore.jsonl \
             --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/tests.yml" \
             --source-ref "$GITHUB_REF" --deny-self-hosted-runners
-          notes='Anteprima locale per Windows 11 x64. Scarica OrderExtractor-*-x64.exe. L’installer è senza firma Authenticode. L’app elabora i PDF sul dispositivo e attiva automaticamente una licenza demo locale. Richiede Microsoft Edge WebView2. Gli asset includono SHA256SUMS.txt, il report di collaudo e l’attestazione di provenienza GitHub Actions in provenance.sigstore.jsonl.'
+          gh attestation verify "$desktop" --bundle release-assets/desktop-provenance.sigstore.jsonl \
+            --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/tests.yml" \
+            --source-ref "$GITHUB_REF" --deny-self-hosted-runners
+          notes='Anteprima locale per Windows 11 x64. Scarica OrderExtractor-*-x64.exe. L’installer è senza firma Authenticode. L’app elabora i PDF sul dispositivo e attiva automaticamente una licenza demo locale. Richiede Microsoft Edge WebView2. Gli asset includono SHA256SUMS.txt, il report di collaudo e l’attestazione di provenienza GitHub Actions in provenance.sigstore.jsonl. Dalla versione 0.1.3, usa Impostazioni → Aggiornamenti per passare alla prossima anteprima direttamente dall’app.'
           if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then
             if [[ "$draft" != true ]]; then
               echo 'La release è già pubblicata. I file di una release pubblicata sono immutabili per questo workflow.'

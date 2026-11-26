@@ -17,6 +17,7 @@ from platformdirs import user_data_dir
 
 from . import VERSION
 from .license import LicenseClient
+from .preview_updates import PreviewUpdates, verifier_path
 from .updates import Updates
 from .version_store import SwitchError, VersionStore, durable_json, release_key
 
@@ -70,6 +71,8 @@ def installed_config(store, version):
 
 def download_update(store, previous, version, package):
     resources, config = installed_config(store, previous)
+    if config.get("local_preview") and config.get("github_updates"):
+        return PreviewUpdates(previous, store.home).get(path=package, expected=version)
     if not config.get("enable_updates"):
         raise SwitchError("Gli aggiornamenti sono disabilitati.")
     public = serialization.load_pem_public_key((resources / "lease-public.pem").read_bytes())
@@ -103,10 +106,13 @@ def apply_pending(store, *, fetch=download_update, health=None):
             raise SwitchError("La versione proposta non è più recente.")
         if health is None:
             _, config = installed_config(store, previous)
-            thumbprint = config["publisher_thumbprint"]
+            if config.get("local_preview") and config.get("github_updates"):
+                health = probe  # The archive was verified against GitHub build provenance before extraction.
+            else:
+                thumbprint = config["publisher_thumbprint"]
 
-            def health(executable, data, candidate):
-                return trusted_publisher(executable, thumbprint) and probe(executable, data, candidate)
+                def health(executable, data, candidate):
+                    return trusted_publisher(executable, thumbprint) and probe(executable, data, candidate)
 
         with tempfile.TemporaryDirectory(dir=store.home, prefix="update-download-") as directory:
             package = Path(directory) / "desktop.zip"
@@ -121,8 +127,10 @@ def apply_pending(store, *, fetch=download_update, health=None):
 
 def main():
     home = Path(sys.executable).resolve().parent
-    data = Path(user_data_dir("OrderExtractor", appauthor=False))
-    store = VersionStore(home, data)
+    preview = verifier_path(home).is_file()
+    product = "OrderExtractorPreview" if preview else "OrderExtractor"
+    data = Path(user_data_dir(product, appauthor=False))
+    store = VersionStore(home, data, data_subdir="demo" if preview else None)
     try:
         with FileLock(str(home / "launch.lock"), timeout=0):
             with FileLock(str(home / "payload.lock"), timeout=0):

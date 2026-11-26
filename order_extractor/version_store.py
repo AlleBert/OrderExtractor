@@ -115,9 +115,10 @@ def extract_verified(archive, destination, digest):
 class VersionStore:
     """Keep known payloads under a dedicated directory managed by the installer."""
 
-    def __init__(self, installation, data):
+    def __init__(self, installation, data, *, data_subdir=None):
         self.home = Path(installation)
         self.data = Path(data)
+        self.data_subdir = data_subdir
         self.versions = self.home / "versions"
         self.pointer = self.home / "current.json"
         self.journal = self.home / "pending.json"
@@ -161,13 +162,17 @@ class VersionStore:
         return True
 
     def _snapshot(self, target):
-        target.mkdir()
-        database = self.data / TABLE_DATA
+        source = self.data
+        if self.data_subdir:
+            source = source / self.data_subdir
+            target = target / self.data_subdir
+        target.mkdir(parents=True)
+        database = source / TABLE_DATA
         if database.is_file():
             with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=5)) as origin:
                 with closing(sqlite3.connect(target / TABLE_DATA)) as copy:
                     origin.backup(copy)
-        licence = self.data / LICENCE
+        licence = source / LICENCE
         if licence.is_file():
             shutil.copyfile(licence, target / LICENCE)
 

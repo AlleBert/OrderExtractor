@@ -3,6 +3,7 @@ param(
     [string]$LeasePublicKey,
     [Parameter(Mandatory=$true)][string]$TesseractDirectory,
     [switch]$LocalPreview,
+    [string]$GitHubCliDirectory,
     [ValidateSet("eng", "ita", "eng+ita", "ita+eng")][string]$OcrLanguages = "eng",
     [string]$UpdateTrustedRoot,
     [string]$PublisherThumbprint,
@@ -54,6 +55,13 @@ foreach ($model in $modelManifest.files.PSObject.Properties) {
 $stage = Join-Path (Get-Location) "build\desktop-config"
 New-Item -ItemType Directory -Force $stage | Out-Null
 $config = Join-Path $stage "desktop-config.json"
+$launcherData = @()
+if ($GitHubCliDirectory) {
+    if (!$LocalPreview) { throw "Il verificatore GitHub è destinato all’anteprima locale" }
+    $gh = (Resolve-Path (Join-Path $GitHubCliDirectory "bin\gh.exe")).Path
+    $ghLicense = (Resolve-Path (Join-Path $GitHubCliDirectory "LICENSE")).Path
+    $launcherData = @("--add-data", "$gh;github-cli", "--add-data", "$ghLicense;github-cli")
+}
 $modeData = if ($LocalPreview) {
     @("--add-data", "order_extractor/sample.pdf;order_extractor")
 } else {
@@ -66,7 +74,7 @@ if ($UpdateTrustedRoot) {
     Copy-Item $UpdateTrustedRoot $updateRoot -Force
     $modeData += @("--add-data", "$updateRoot;order_extractor")
 }
-@{local_preview = [bool]$LocalPreview; control_url = $ControlUrl; enable_updates = [bool]$UpdateTrustedRoot; publisher_thumbprint = $PublisherThumbprint; ocr_languages = $OcrLanguages} | ConvertTo-Json | Set-Content -Path $config -Encoding utf8
+@{local_preview = [bool]$LocalPreview; github_updates = [bool]$GitHubCliDirectory; control_url = $ControlUrl; enable_updates = [bool]$UpdateTrustedRoot; publisher_thumbprint = $PublisherThumbprint; ocr_languages = $OcrLanguages} | ConvertTo-Json | Set-Content -Path $config -Encoding utf8
 uv sync --locked --group windows
 if ($LASTEXITCODE) { throw "Installazione dipendenze Python non riuscita" }
 $workerProbe = Join-Path $stage "worker-probe.pdf"
@@ -81,7 +89,7 @@ try {
 } finally { Pop-Location }
 uv run --locked --group windows pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --icon installer/order-extractor.ico --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$ocr;order_extractor/ocr" --add-data "$workerProbe;order_extractor" @modeData installer/desktop.py
 if ($LASTEXITCODE) { throw "Packaging PyInstaller non riuscito" }
-uv run --locked --group windows pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --icon installer/order-extractor.ico --paths . installer/supervisor.py
+uv run --locked --group windows pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --icon installer/order-extractor.ico --paths . @launcherData installer/supervisor.py
 if ($LASTEXITCODE) { throw "Build launcher non riuscita" }
 Sign-ReleaseFile "dist\OrderExtractor\OrderExtractor.exe"
 Sign-ReleaseFile "dist\OrderExtractorLauncher\OrderExtractorLauncher.exe"

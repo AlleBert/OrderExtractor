@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+La Preview Windows può cercare e installare le nuove anteprime pubblicate su GitHub. Il launcher verifica l’attestazione del pacchetto e prova la nuova versione su una copia dei dati prima di attivarla.
+
 ## 0.1.2
 
 Nuovo logo nell’app, nella dashboard e nell’installer Windows. Il manuale spiega come accedere all’amministrazione e provare la creazione di seriali.

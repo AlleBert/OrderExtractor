@@ -8,6 +8,8 @@ Apri [GitHub Releases](https://github.com/AlleBert/OrderExtractor/releases), sce
 
 L’anteprima crea e attiva una licenza demo locale, include Tesseract e offre un ordine sintetico per la prima prova. Usa **Usa l’ordine demo** oppure carica un PDF locale.
 
+Dalla versione 0.1.3 puoi anche installare le nuove anteprime da **Impostazioni → Aggiornamenti**. [Come aggiornare dall’app](docs/github-releases.md#aggiornare-lanteprima-dallapp)
+
 Per provare la creazione di seriali e la gestione delle postazioni, avvia la demo dai sorgenti. [Accesso alla dashboard](docs/operations.md#dashboard)
 
 ## Prova l’app dai sorgenti
