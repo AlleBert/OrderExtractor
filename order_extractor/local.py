@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import uuid
+from concurrent.futures import Future
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +21,14 @@ from starlette.background import BackgroundTask
 
 from . import VERSION
 from .core import NumberStyle, Revision, export, validate
-from .local_ai import check_model, infer_page, read_ai_page
+from .local_ai import (
+    MODEL,
+    check_model,
+    infer_document,
+    infer_page,
+    pull_model,
+    read_ai_page,
+)
 from .manual import (
     ColumnRules,
     PageMapping,
@@ -46,7 +54,7 @@ ROOT = Path(__file__).parent / "web"
 COOKIE = "oe_session"
 
 
-def worker(path, directory, rapid_ocr=False):
+def worker(path, directory, rapid_ocr=False, text_only=False):
     from .extraction import extract
 
     path = Path(path)
@@ -61,7 +69,7 @@ def worker(path, directory, rapid_ocr=False):
         def progress(index, total):
             write("progress", {"checked": index, "total": total})
 
-        result = extract(path, directory, progress, rapid_ocr=rapid_ocr)
+        result = extract(path, directory, progress, rapid_ocr=rapid_ocr, text_only=text_only)
         write("result", result)
     except ValueError as error:
         write("result", {"error": str(error)[:500]})
@@ -192,7 +200,7 @@ class AISelection(BaseModel):
 
 
 class Job:
-    def __init__(self, path, token, document_hash, duplicate, temp, rapid_ocr=False):
+    def __init__(self, path, token, document_hash, duplicate, temp, rapid_ocr=False, local_ai=False):
         self.token = token
         self.document_hash = document_hash
         self.duplicate = duplicate
@@ -208,15 +216,31 @@ class Job:
         self.header_anchors = []
         self.manual_rules = {}
         self.ai_documents = {}
+        self.local_ai = local_ai
+        self.ai_future = None
+        self.cancel_ai = threading.Event()
+        self.ai_progress = None
         if os.name == "nt" and getattr(sys, "frozen", False):
             from .windows_appcontainer import AppContainerProcess
 
             self.process = AppContainerProcess(Path(sys.executable), ["--pdf-worker", str(self.directory)], self.directory)
         else:
-            self.process = WorkerProcess(worker, (path, self.directory, rapid_ocr), self.directory)
+            self.process = WorkerProcess(worker, (path, self.directory, rapid_ocr, local_ai), self.directory)
 
     def refresh(self, store):
         if self.status != "running":
+            return
+        if self.ai_future is not None:
+            if not self.ai_future.done():
+                return
+            try:
+                rows = self.ai_future.result()
+            except Exception as error:
+                self.status = "failed"
+                self.result = {"error": str(error) if isinstance(error, ValueError) else "Elaborazione AI non riuscita."}
+                self.temp.cleanup()
+                return
+            self.finish_review(rows, store)
             return
         elapsed = time.monotonic() - self.started
         progress = self.progress()
@@ -242,8 +266,33 @@ class Job:
             return
         self.header_anchors = payload.header_anchors
         self.result = payload.model_dump(exclude={"rows", "header_anchors"})
+        if self.local_ai:
+            self.ai_future = Future()
+            self.ai_progress = {"phase": "ollama", "checked": 0, "total": payload.page_count, "chars": 0,
+                                "part": 0, "parts": 0}
+
+            def report(page, total, part, parts, chars):
+                self.ai_progress = {"phase": "ollama", "checked": page, "total": total,
+                                    "part": part, "parts": parts, "chars": chars}
+
+            def analyze():
+                if self.ai_future.set_running_or_notify_cancel():
+                    try:
+                        rows = infer_document(self.directory, self.result, self.data.number_style, report,
+                                              cancel=self.cancel_ai.is_set)
+                    except Exception as error:
+                        self.ai_future.set_exception(error)
+                    else:
+                        self.ai_future.set_result(rows)
+
+            threading.Thread(target=analyze, daemon=True).start()
+            return
+        self.finish_review(payload.rows, store)
+
+    def finish_review(self, rows, store):
         self.status = "needs_review"
-        self.data = Revision(revision=0, rows=payload.rows)
+        self.ai_progress = None
+        self.data = Revision(revision=0, rows=rows)
         store.query(
             "INSERT INTO history VALUES (?, ?, datetime('now'), ?, ?, ?)",
             (self.token, self.document_hash, self.result["page_count"], len(self.data.rows), self.status),
@@ -258,6 +307,7 @@ class Job:
             return {}
 
     def stop(self):
+        self.cancel_ai.set()
         self.process.stop()
         self.temp.cleanup()
 
@@ -289,7 +339,7 @@ class Job:
         layout = self.result.get("layout_key")
         metadata = {key: value for key, value in self.result.items() if key != "layout_key"}
         return dict(token=self.token, status=self.status, duplicate=self.duplicate,
-                    progress=self.progress(), **metadata, **self.data.model_dump(),
+                    progress={**(self.ai_progress or self.progress()), "elapsed": round(time.monotonic() - self.started)}, **metadata, **self.data.model_dump(),
                     layout_profile=store.profile_for_layout(layout),
                     can_learn_layout=self.status == "exported" and bool(layout or self.confirmed_manual_rules()),
                     mapping_suggestions=self.mapping_suggestions(store),
@@ -304,6 +354,8 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
     privacy_lock = threading.RLock()
     update_lock = threading.Lock()
     ai_lock = threading.Lock()
+    setup_lock = threading.Lock()
+    setup = {"running": False, "completed": 0, "total": 0}
     session = secrets.token_urlsafe(32)
     job = None
     staged = None
@@ -619,6 +671,11 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 raise HTTPException(403, "Attiva una licenza valida prima di elaborare un PDF.")
             if job and job.status not in {"failed", "cancelled", "exported"}:
                 raise HTTPException(409, "Chiudi il documento aperto prima di caricarne un altro.")
+            if local_ai:
+                try:
+                    check_model()
+                except ValueError as error:
+                    raise HTTPException(503, "Completa la configurazione in Impostazioni → AI locale.") from error
             temp = tempfile.TemporaryDirectory(prefix="oe-job-")
             path = Path(temp.name) / "source.pdf"
             digest = hashlib.sha256()
@@ -638,7 +695,7 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 duplicate = bool(store.query("SELECT 1 FROM history WHERE hash=? LIMIT 1", (document_hash,)))
                 if job:
                     job.stop()
-                job = Job(path, str(uuid.uuid4()), document_hash, duplicate, temp, rapid_ocr=rapid_ocr)
+                job = Job(path, str(uuid.uuid4()), document_hash, duplicate, temp, rapid_ocr=rapid_ocr, local_ai=local_ai)
                 return job.view(store)
             except OSError as error:
                 temp.cleanup()
@@ -734,10 +791,47 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
     def ai_status():
         if not local_ai:
             raise HTTPException(404)
+        with setup_lock:
+            state = dict(setup)
+        if state["running"]:
+            return {**state, "model": MODEL, "ready": False, "stage": "downloading"}
         try:
-            return check_model()
-        except ValueError as error:
-            raise HTTPException(503, str(error)) from error
+            return {**state, **check_model(), "stage": "ready"}
+        except ValueError:
+            from .local_ai import ollama_request
+
+            try:
+                ollama_request("GET", "/api/version")
+            except ValueError:
+                stage = "engine"
+            else:
+                stage = "model"
+            return {**state, "model": MODEL, "ready": False, "stage": stage}
+
+    @app.post("/api/local-ai/install-model")
+    def ai_install_model():
+        if not local_ai:
+            raise HTTPException(404)
+        with setup_lock:
+            if not setup["running"]:
+                setup.update(running=True, completed=0, total=0, error=None)
+
+                def progress(completed, total):
+                    with setup_lock:
+                        setup.update(completed=completed, total=total)
+
+                def download():
+                    error = None
+                    try:
+                        pull_model(progress)
+                    except Exception:
+                        error = "Download non riuscito. Avvia Ollama e verifica la connessione Internet."
+                    finally:
+                        with setup_lock:
+                            setup.update(running=False, error=error)
+
+                threading.Thread(target=download, daemon=True).start()
+        return {"running": True}
 
     @app.post("/api/jobs/{token}/pages/{index}/ai")
     def retry_with_ai(token: str, index: int, selection: AISelection):

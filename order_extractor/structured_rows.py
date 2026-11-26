@@ -1,9 +1,10 @@
 """Validate model-selected source cells and build the versioned JSON output."""
 
+import re
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from .core import MAX_ROWS, NumberStyle, parse_decimal
 from .tables import strip_currency
@@ -16,10 +17,10 @@ class StrictModel(BaseModel):
 
 
 class RowSelection(StrictModel):
-    article: CellID | None
-    description: list[CellID] = Field(max_length=20)
-    quantity: CellID | None
-    unit_price: CellID | None
+    article: CellID | None = Field(validation_alias=AliasChoices("a", "article"))
+    description: list[CellID] = Field(max_length=20, validation_alias=AliasChoices("d", "description"))
+    quantity: CellID | None = Field(validation_alias=AliasChoices("q", "quantity"))
+    unit_price: CellID | None = Field(validation_alias=AliasChoices("p", "unit_price"))
 
 
 class PageSelection(StrictModel):
@@ -47,6 +48,13 @@ class StructuredDocument(StrictModel):
     notices: list[ExtractionNotice]
 
 
+def clean_number(value):
+    value = " ".join(value.split())
+    if re.fullmatch(r"[+-]?[0-9]{1,3}(?: [0-9]{3})+(?:[.,][0-9]+)?", value):
+        return value.replace(" ", "")
+    return value
+
+
 def resolve_page(
     selection: PageSelection, cells: Mapping[str, str], page: int, number_style: NumberStyle
 ) -> StructuredDocument:
@@ -68,7 +76,7 @@ def resolve_page(
                 elif field in {"quantity", "unit_price"}:
                     raw = strip_currency(value)[0] if field == "unit_price" else value
                     try:
-                        value = format(parse_decimal(raw, number_style), "f")
+                        value = format(parse_decimal(clean_number(raw), number_style), "f")
                     except ValueError:
                         value = None
                         code = "invalid_number"

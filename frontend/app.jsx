@@ -55,7 +55,7 @@ function App() {
   const [profileName, setProfileName] = useState("");
   const [bindLayout, setBindLayout] = useState(false);
   const [mapping, setMapping] = useState(null);
-  const [aiStatus, setAIStatus] = useState("");
+  const [aiStatus, setAIStatus] = useState(null);
   const [capture, setCapture] = useState("top");
   const fileInput = useRef(null);
   const confirmation = useRef(null);
@@ -90,6 +90,22 @@ function App() {
       api("/api/startup/ready", {method:"POST",body:"{}"}).catch(problem => setError(problem.message));
     }
   }, [status?.startup_check]);
+
+  useEffect(() => {
+    if (!status?.local_ai || tab !== "settings") return;
+    let active = true;
+    async function check() {
+      try {
+        const result = await api("/api/local-ai/status");
+        if (active) setAIStatus(result);
+      } catch (problem) {
+        if (active) setError(problem.message);
+      }
+    }
+    check();
+    const timer = setInterval(check, 1500);
+    return () => { active = false; clearInterval(timer); };
+  }, [status?.local_ai, tab]);
 
   useEffect(() => {
     setBindLayout(false);
@@ -252,9 +268,17 @@ function App() {
               await upload(new File([await response.blob()], "ordine-demo.pdf", {type:"application/pdf"}));
             })}>Usa l’ordine demo <Icon name="right" size={15}/></button></div>}
           </section>}
-          {job?.status === "running" && <section className="panel progress-panel"><div className="feature-icon"><Icon name="file"/></div><h2>Lettura del documento</h2>
-            <p role="status">{job.progress.total ? `Pagina ${Math.min(job.progress.checked + 1, job.progress.total)} di ${job.progress.total}` : "Preparazione del PDF…"}</p>
-            <progress max={job.progress.total || 1} value={job.progress.checked || 0}/></section>}
+          {job?.status === "running" && <section className="panel progress-panel"><div className="feature-icon"><Icon name="file"/></div>
+            <h2>{job.progress.phase === "ollama" ? "Analisi AI locale" : "Lettura del documento"}</h2>
+            <p role="status">{job.progress.total ? `Pagina ${Math.min(job.progress.checked + 1, job.progress.total)} di ${job.progress.total}` : "Preparazione del PDF…"}
+              {job.progress.phase === "ollama" && (job.progress.chars > 0
+                ? ` · Risposta in corso (${job.progress.chars} caratteri)`
+                : " · Ollama sta preparando la risposta")}
+              {job.progress.parts > 1 && ` · Parte ${job.progress.part}/${job.progress.parts}`}
+              {` · ${job.progress.elapsed || 0} s`}</p>
+            {job.progress.total && (job.progress.phase !== "ollama" || job.progress.total > 1)
+              ? <progress max={job.progress.total} value={job.progress.checked || 0}/> : <progress/>}
+          </section>}
           {job?.status === "failed" && <p className="notice error" role="alert">{job.error}</p>}
           {ready && <>
             {job.duplicate && <p className="notice">Questo PDF è già stato elaborato. Puoi continuare la revisione.</p>}
@@ -277,7 +301,7 @@ function App() {
                     })}
                   </svg>
                 </div></div>
-                <div className="preview-foot"><span>{job.mapped_pages?.includes(page) ? "Mappatura manuale" : job.engines[page]}</span>{!mapping && job.mappable_pages?.includes(page) &&
+                <div className="preview-foot"><span>{job.mapped_pages?.includes(page) ? "Mappatura manuale" : job.engines[page]}</span>{!status.local_ai && !mapping && job.mappable_pages?.includes(page) &&
                   <button className="button outline" disabled={!!busy} onClick={() => openMapping()}>Mappa colonne</button>}</div>
                 {status.local_ai && !mapping && job.mappable_pages?.includes(page) && <div className="preview-foot">
                   <button className="button outline" disabled={!!busy || dirty || !status.license.active} onClick={() => {
@@ -389,13 +413,24 @@ function App() {
               {job.can_learn_layout && !dirty && <label className="privacy-toggle"><input type="checkbox" checked={bindLayout} onChange={event => setBindLayout(event.target.checked)}/>Suggerisci il profilo per ordini con questo layout</label>}
               <button className="button primary" disabled={!!busy}>Salva impostazioni correnti</button></form> : <p className="mute">Apri un ordine per salvare le sue impostazioni come profilo.</p>}
           </section>{status.local_ai && <section className="panel settings-card"><h2>AI locale</h2>
-            <p>Installa Ollama sul PC e scarica il modello con <code>ollama pull qwen2.5:3b</code>.</p>
-            <button className="button outline" disabled={!!busy} onClick={() => run("Verifica Ollama", async () => {
-              setAIStatus("");
-              const result = await api("/api/local-ai/status");
-              setAIStatus(`Pronto: ${result.model}`);
-            })}>Verifica Ollama</button>
-            {aiStatus && <p role="status">{aiStatus}</p>}
+            {!aiStatus && <p role="status">Verifica del motore locale…</p>}
+            {aiStatus?.stage === "engine" && <div>
+              <p><strong>1. Installa e avvia Ollama.</strong> Dopo l’avvio, torna a questa schermata.</p>
+              <a className="button outline" href="https://ollama.com/download/windows" target="_blank" rel="noopener noreferrer">Scarica Ollama per Windows</a>
+            </div>}
+            {aiStatus?.stage === "model" && <div>
+              <p><strong>2. Scarica il modello.</strong> Internet serve per questo download iniziale.</p>
+              <button className="button primary" disabled={!!busy} onClick={() => run("Download modello", async () => {
+                await api("/api/local-ai/install-model", {method:"POST", body:"{}"});
+                setAIStatus({stage:"downloading"});
+              })}>Scarica modello AI</button>
+            </div>}
+            {aiStatus?.stage === "downloading" && <div>
+              <p role="status">Download di qwen2.5:3b{aiStatus.total ? ` · ${Math.floor(100 * aiStatus.completed / aiStatus.total)}%` : "…"}</p>
+              {aiStatus.total ? <progress max={aiStatus.total} value={aiStatus.completed}/> : <progress/>}
+            </div>}
+            {aiStatus?.ready && <p role="status">Pronto: {aiStatus.model}. Puoi caricare un ordine.</p>}
+            {aiStatus?.error && !aiStatus.ready && <p className="notice error" role="alert">{aiStatus.error}</p>}
           </section>}<section className="panel settings-card"><h2>Privacy</h2>
             <p>La diagnostica facoltativa contiene codici evento, versione e conteggi. PDF, testo e CSV restano sul dispositivo.</p>
             <label className="privacy-toggle"><input type="checkbox" checked={status.diagnostics} disabled={!!busy}

@@ -46,16 +46,20 @@ function Sign-ReleaseFile([string]$File) {
         if ($LASTEXITCODE) { throw "Verifica Authenticode non riuscita: $File" }
     }
 }
-$ocr = (Resolve-Path $TesseractDirectory).Path
-foreach ($needed in @("tesseract.exe", "tessdata\ita.traineddata", "tessdata\eng.traineddata")) {
-    if (!(Test-Path (Join-Path $ocr $needed) -PathType Leaf)) { throw "Tesseract incompleto: $needed" }
-}
-$modelManifest = Get-Content "installer\ocr-models.json" -Raw | ConvertFrom-Json
-foreach ($model in $modelManifest.files.PSObject.Properties) {
-    $modelPath = Join-Path (Join-Path $ocr "tessdata") $model.Name
-    if ((Get-FileHash $modelPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $model.Value) {
-        throw "Il modello OCR non corrisponde alla versione verificata: $($model.Name)"
+$ocrData = @()
+if (!$LocalBeta) {
+    $ocr = (Resolve-Path $TesseractDirectory).Path
+    foreach ($needed in @("tesseract.exe", "tessdata\ita.traineddata", "tessdata\eng.traineddata")) {
+        if (!(Test-Path (Join-Path $ocr $needed) -PathType Leaf)) { throw "Tesseract incompleto: $needed" }
     }
+    $modelManifest = Get-Content "installer\ocr-models.json" -Raw | ConvertFrom-Json
+    foreach ($model in $modelManifest.files.PSObject.Properties) {
+        $modelPath = Join-Path (Join-Path $ocr "tessdata") $model.Name
+        if ((Get-FileHash $modelPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $model.Value) {
+            throw "Il modello OCR non corrisponde alla versione verificata: $($model.Name)"
+        }
+    }
+    $ocrData = @("--add-data", "$ocr;order_extractor/ocr")
 }
 $stage = Join-Path (Get-Location) "build\desktop-config"
 New-Item -ItemType Directory -Force $stage | Out-Null
@@ -92,7 +96,7 @@ if ($UpdateTrustedRoot) {
 $groups = @("--group", "windows")
 if ($LocalBeta) {
     $groups += @("--group", "beta-ocr")
-    $modeData += @("--collect-all", "rapidocr_onnxruntime", "--collect-all", "onnxruntime")
+    $modeData += @("--collect-all", "rapidocr_onnxruntime", "--collect-all", "onnxruntime", "--collect-all", "pymupdf")
 }
 uv sync --locked @groups
 if ($LASTEXITCODE) { throw "Installazione dipendenze Python non riuscita" }
@@ -106,7 +110,7 @@ try {
     npm run build
     if ($LASTEXITCODE) { throw "Build frontend non riuscita" }
 } finally { Pop-Location }
-uv run --locked @groups pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --icon installer/order-extractor.ico --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$ocr;order_extractor/ocr" --add-data "$workerProbe;order_extractor" @modeData installer/desktop.py
+uv run --locked @groups pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --icon installer/order-extractor.ico --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$workerProbe;order_extractor" @ocrData @modeData installer/desktop.py
 if ($LASTEXITCODE) { throw "Packaging PyInstaller non riuscito" }
 uv run --locked @groups pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --icon installer/order-extractor.ico --paths . @launcherData installer/supervisor.py
 if ($LASTEXITCODE) { throw "Build launcher non riuscita" }

@@ -12,7 +12,7 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest==9.0.2", "reportlab==4.4.9", "playwright==1.62.0", "ruff==0.15.0"]
-beta-ocr = ["rapidocr-onnxruntime==1.4.4"]
+beta-ocr = ["rapidocr-onnxruntime==1.4.4", "pymupdf==1.27.2.3", "psutil==7.2.2"]
 windows = ["pyinstaller==6.19.0; sys_platform == 'win32'"]
 
 [tool.ruff.lint]

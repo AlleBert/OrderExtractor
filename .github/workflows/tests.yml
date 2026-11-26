@@ -48,8 +48,9 @@ jobs:
       - run: uv sync --locked
       - run: uv run --locked python -m pytest tests/test_worker_limits.py -k cancel -q
       - run: uv run --locked python -m pytest tests/test_windows_appcontainer.py -q
+      - run: uv run --locked python -m pytest tests/test_offline_csv.py tests/test_local_ai.py -q
   windows-installer:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/offline-ai-csv' || github.ref_type == 'tag')
     runs-on: windows-2025
     timeout-minutes: 35
     permissions:
@@ -70,7 +71,7 @@ jobs:
           $version = python -c "from order_extractor import VERSION; import tomllib; assert VERSION == tomllib.load(open('pyproject.toml','rb'))['project']['version']; print(VERSION)"
           if ($LASTEXITCODE -or $version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid version' }
           $stable = $env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ceq "v$version"
-          $beta = $env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ceq "v${version}-beta"
+          $beta = ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ceq "v${version}-beta") -or $env:GITHUB_REF -ceq 'refs/heads/feature/offline-ai-csv'
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and !$stable -and !$beta -and $env:GITHUB_REF_NAME -cne "v${version}-preview") {
             throw 'The tag must match the package version'
           }

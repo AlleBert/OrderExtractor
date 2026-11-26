@@ -149,7 +149,7 @@ def compare_ocr(rows, alternate):
                     row["source_spans"].extend(other["source_spans"][:1])
 
 
-def extract(path: Path, directory: Path, progress, *, rapid_ocr=False):
+def extract(path: Path, directory: Path, progress, *, rapid_ocr=False, text_only=False):
     rows, notices, engines = [], [], []
     layouts = set()
     mappable_pages = []
@@ -173,6 +173,35 @@ def extract(path: Path, directory: Path, progress, *, rapid_ocr=False):
                 preview = raster(page, 120)
                 preview.thumbnail((1260, 1600))
                 preview.save(directory / f"{index}.png", optimize=False)
+                if text_only:
+                    native_page = native.pages[index]
+                    layout = native_page.extract_text(layout=True) or ""
+                    words = native_words(native_page) if layout.strip() else []
+                    readable = bool(words) and sum("�" in word.text or "(cid:" in word.text for word in words) * 8 < len(words)
+                    engine = "testo PDF"
+                    if not readable:
+                        import pymupdf
+                        from rapidocr_onnxruntime import RapidOCR
+
+                        if rapid_engine is None:
+                            rapid_engine = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1)
+                        with pymupdf.open(path) as source:
+                            source_page = source[index]
+                            scale = min(200 / 72, (MAX_PIXELS / source_page.rect.get_area()) ** .5 * .995)
+                            pixmap = source_page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+                            from PIL import Image
+
+                            image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+                            words = rapid_words(image, rapid_engine)
+                        engine = "OCR RapidOCR"
+                    cached = cache_page(directory, index, lines_for(words), cache_budget, engine)
+                    if cached:
+                        cache_budget -= cached
+                        mappable_pages.append(index)
+                    elif words:
+                        raise ValueError(f"Pagina {index + 1}: testo oltre i limiti della pipeline AI.")
+                    engines.append(engine)
+                    continue
                 words = native_words(native.pages[index])
                 lines = lines_for(words)
                 has_header = any(header(line) for line in lines)

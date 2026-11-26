@@ -49,7 +49,7 @@ def run_pdf_worker(arguments):
         directory = Path.cwd()
         config_path = Path(__file__).parent / "desktop-config.json"
         config = json.loads(config_path.read_text(encoding="utf-8-sig"))
-        worker(directory / "source.pdf", directory, rapid_ocr=config.get("local_ai", False))
+        worker(directory / "source.pdf", directory, rapid_ocr=config.get("local_ai", False), text_only=config.get("local_ai", False))
     except OSError as error:
         if arguments[1:] == ["--trace-probe"]:
             raise
@@ -290,10 +290,12 @@ def main():
             from .extraction import pdfium
 
             print("Verifica runtime OCR e PDF", flush=True)
-            languages = subprocess.run([os.environ["OE_TESSERACT"], "--list-langs"], check=True,
-                                       capture_output=True, timeout=10).stdout.splitlines()
-            if not {b"ita", b"eng"}.issubset(languages):
-                raise RuntimeError("Modelli OCR richiesti non disponibili.")
+            if not local_ai:
+                languages = subprocess.run([os.environ["OE_TESSERACT"], "--list-langs"], check=True,
+                                           capture_output=True, timeout=10,
+                                           creationflags=subprocess.CREATE_NO_WINDOW).stdout.splitlines()
+                if not {b"ita", b"eng"}.issubset(languages):
+                    raise RuntimeError("Modelli OCR richiesti non disponibili.")
             if not pdfium.PDFIUM_INFO:
                 raise RuntimeError("Runtime PDF assente.")
             with closing(sqlite3.connect(base / "local.sqlite")) as db:

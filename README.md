@@ -8,21 +8,31 @@ Apri [GitHub Releases](https://github.com/AlleBert/OrderExtractor/releases/lates
 
 In **Impostazioni → Aggiornamenti** puoi cercare le nuove versioni stabili. L’app verifica l’attestazione GitHub del pacchetto e prova la nuova versione prima di attivarla.
 
-## Order Extractor 1.0.1 Beta
+## Estrazione AI locale e CSV
 
-La beta si installa come **Order Extractor Beta**, con i propri dati locali. Usa il server licenze di Order Extractor e richiede l’attivazione come postazione distinta dalla stabile.
+Nella build sperimentale Windows apri **Impostazioni → AI locale**. Se il motore manca, apri il download ufficiale di Ollama dal pulsante, installalo e avvialo. Torna nelle impostazioni e premi **Scarica modello AI**. L’app mostra lo stato del download. Internet serve per installare motore e pesi e per la consueta attivazione e il rinnovo delle licenze.
 
-1. [Installa Ollama per Windows](https://ollama.com/download/windows), avvialo e scarica il modello una volta da PowerShell.
+Carica un PDF. La schermata mostra la lettura delle pagine, poi la pagina e la parte in elaborazione da Ollama, il tempo trascorso e l’avanzamento della risposta. Rivedi le righe proposte e conferma l’esportazione. Il CSV usa UTF-8, separatore `;`, fine riga CRLF e punto decimale, con le colonne `numero_riga;articolo;lotto;descrizione;quantita;prezzo_unitario`.
 
-   ```powershell
-   ollama pull qwen2.5:3b
-   ```
+La lettura usa pdfplumber per il testo nativo e PyMuPDF con RapidOCR per le scansioni. L’app seleziona le sezioni tabellari e passa testo e riferimenti spaziali al modello sullo stesso PC. Il modello restituisce riferimenti alle celle, mentre Python verifica i valori e scrive il CSV. Per distribuire un installer che include PyMuPDF, verifica gli obblighi della sua licenza AGPL o usa una licenza commerciale.
 
-2. In Order Extractor Beta apri **Impostazioni → AI locale → Verifica Ollama**.
-3. Apri un ordine, seleziona una pagina e premi **Riprova con AI locale**. Se la pagina ha già delle righe, il pulsante chiede conferma prima di sostituirle. Verifica le proposte confrontandole con il PDF.
-4. Usa **Scarica proposta JSON** per ottenere la proposta della pagina. Il file riporta il numero di pagina, i decimali normalizzati e gli avvisi per valori mancanti o ambigui. Per esportare eventuali correzioni dalla griglia usa il normale CSV.
+### Elaborare una cartella dal terminale
 
-La beta legge il testo nativo e usa RapidOCR per le scansioni, con Tesseract come riserva. Invia testo e coordinate solo a Ollama sullo stesso PC. Dopo aver scaricato Ollama e il modello e attivato la licenza, puoi collaudare l’estrazione scollegando Internet. La beta si aggiorna scaricando il suo installer.
+Predisponi le dipendenze e il modello una volta, con Internet disponibile. Avvia Ollama prima di scaricare il modello.
+
+```powershell
+uv sync --locked --group beta-ocr
+ollama pull qwen2.5:3b
+uv run --locked --offline --group beta-ocr python -m scripts.offline_csv "C:\Ordini" --init
+```
+
+Copia i PDF in `C:\Ordini\input`. Poi puoi scollegare Internet ed eseguire:
+
+```powershell
+uv run --locked --offline --group beta-ocr python -m scripts.offline_csv "C:\Ordini" --number-style it
+```
+
+Il comando scrive un CSV per PDF in `C:\Ordini\output`. Usa `--number-style en` per i documenti con punto decimale. Il batch prosegue sugli altri file se un PDF non è leggibile o ha righe non esportabili, segnala il problema e restituisce codice 1. I CSV esistenti sono preservati. Il controllo umano dei risultati si può fare nella griglia dell’app.
 
 ## Prova l’app dai sorgenti
 
