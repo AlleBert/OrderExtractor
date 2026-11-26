@@ -49,4 +49,4 @@ jobs:
         env:
           START_VERSION: ${{ inputs.installed }}
           EXPECTED_VERSION: ${{ inputs.expected }}
-        run: uv run --locked python scripts/check_preview_upgrade.py $env:START_VERSION $env:EXPECTED_VERSION
+        run: uv run --locked python -m scripts.check_preview_upgrade $env:START_VERSION $env:EXPECTED_VERSION
