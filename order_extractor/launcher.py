@@ -114,6 +114,7 @@ def admin_verifier():
     issuer, audience, jwks_url = (os.environ[name] for name in ("OE_OIDC_ISSUER", "OE_OIDC_AUDIENCE", "OE_OIDC_JWKS"))
     if not issuer.startswith("https://") or not jwks_url.startswith("https://"):
         raise ValueError("Issuer e JWKS devono usare HTTPS.")
+    owner_subject = os.environ.get("OE_ADMIN_SUBJECT")
     keys = jwt.PyJWKClient(jwks_url, timeout=5)
 
     def verify(token):
@@ -124,7 +125,10 @@ def admin_verifier():
             raise ValueError("MFA richiesta.")
         if not isinstance(data.get("roles"), list) or not all(isinstance(role, str) for role in data["roles"]):
             raise ValueError("Ruoli non validi.")
-        return data["sub"][:180], set(data["roles"])
+        roles = set(data["roles"])
+        if owner_subject is not None and (data["sub"] != owner_subject or "owner" not in roles):
+            raise ValueError("Account proprietario non autorizzato.")
+        return data["sub"][:180], roles
     return verify
 
 

@@ -37,6 +37,27 @@ La configurazione richiede DNS e un dominio di staging accessibile a Caddy per H
 
 Se il proxy di build usa una CA aziendale, fornisci il bundle fidato come segreto BuildKit `build_ca`. La CA viene usata nella fase di download delle dipendenze. Il Dockerfile mantiene la verifica TLS.
 
+## Console privata via SSH
+
+Per una console riservata al proprietario, usa il file Compose aggiuntivo su un server Linux con Docker Engine 28 o successivo. Il dominio pubblico risponde alle API usate dai client. La console, le risorse del pannello, le API amministrative e le rotte di stato restano raggiungibili dalla porta `18100` sul loopback del server. PostgreSQL resta sulla rete interna di Docker.
+
+1. Nel provider OIDC applica MFA al tuo account e assegna il ruolo `owner` alla sola identità che amministrerà le licenze. Il token di accesso deve contenere `amr` con `mfa`, `roles` con `owner` e il claim `sub` dell’account. L’issuer, il JWKS e il pubblico del token devono corrispondere a `OE_OIDC_ISSUER`, `OE_OIDC_JWKS` e `OE_OIDC_AUDIENCE`.
+2. Compila il file `.env` come nello staging e imposta `OE_ADMIN_SUBJECT` al valore esatto di `sub`. Mantieni la chiave privata Ed25519 sul server, leggibile dall’UID 10001 del container, e usa una chiave SSH per l’accesso al server.
+3. Avvia i servizi con la configurazione privata.
+
+```sh
+docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml config --quiet
+docker compose --env-file .env -f infra/compose.yaml -f infra/private-admin.compose.yaml up --build -d
+```
+
+Da Windows apri il tunnel e lascia aperta la finestra PowerShell. Sostituisci il nome utente e l’host con quelli del tuo server:
+
+```powershell
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:18100:127.0.0.1:18100 utente@host-ssh
+```
+
+Apri `http://127.0.0.1:18100/` nel browser del PC e usa il token OIDC nel campo **Token di accesso**. Il tunnel cifra il traffico tra il PC e il server. Verifica la dashboard e `/health/ready` attraverso il tunnel. Sul dominio pubblico verifica che la radice e `/api/v1/admin/customers` restituiscano 404. Dalla dashboard crea un cliente e un seriale di prova e collauda l’attivazione con una build Windows configurata con l’URL HTTPS pubblico e la chiave **pubblica** delle licenze.
+
 ## Build Windows di verifica
 
 Su Windows 11 x64 installa uv, Node.js, Inno Setup e WebView2. Fornisci una directory Tesseract x64 con eseguibile, DLL, licenze e modelli `ita` e `eng` da tessdata_fast 4.1.0. Il build controlla gli SHA-256 in `installer/ocr-models.json`. Il default è `eng` in base al benchmark sintetico. Per layout o contenuti in italiano puoi impostare `-OcrLanguages ita` o una configurazione bilingue dopo averla confrontata sui tuoi documenti autorizzati. Il runtime legge modelli già presenti e non richiede il file di configurazione `tsv` della distribuzione Tesseract. Usa la chiave pubblica di staging:

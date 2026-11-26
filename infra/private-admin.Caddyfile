@@ -1,0 +1,13 @@
+{$OE_HOSTNAME} {
+	@client path /api/v1/license/activate /api/v1/license/challenge /api/v1/license/validate /api/v1/license/deactivate /api/v1/telemetry/events
+	handle @client {
+		reverse_proxy api:8100
+	}
+	@updates path_regexp ^/api/v1/updates/(dev|beta|stable)/(metadata|targets)/[A-Za-z0-9._-]+$
+	handle @updates {
+		reverse_proxy api:8100
+	}
+	handle {
+		respond 404
+	}
+}
