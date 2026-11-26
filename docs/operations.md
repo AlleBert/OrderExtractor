@@ -39,6 +39,8 @@ Se il proxy di build usa una CA aziendale, fornisci il bundle fidato come segret
 
 ## Console privata via SSH
 
+Per un server domestico puoi anche usare [Tailscale Serve](tailscale-licensing.md).
+
 Per una console riservata al proprietario, usa il file Compose aggiuntivo su un server Linux con Docker Engine 28 o successivo. Il dominio pubblico risponde alle API usate dai client. La console, le risorse del pannello, le API amministrative e le rotte di stato restano raggiungibili dalla porta `18100` sul loopback del server. PostgreSQL resta sulla rete interna di Docker.
 
 1. Nel provider OIDC applica MFA al tuo account e assegna il ruolo `owner` alla sola identità che amministrerà le licenze. Il token di accesso deve contenere `amr` con `mfa`, `roles` con `owner` e il claim `sub` dell’account. L’issuer, il JWKS e il pubblico del token devono corrispondere a `OE_OIDC_ISSUER`, `OE_OIDC_JWKS` e `OE_OIDC_AUDIENCE`.

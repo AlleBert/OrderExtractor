@@ -1,0 +1,6 @@
+services:
+  caddy:
+    environment:
+      OE_HOSTNAME: http://:8080
+    ports: !override
+      - "127.0.0.1:18101:8080"
