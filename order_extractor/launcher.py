@@ -234,6 +234,7 @@ def main():
         if args.probe_version:
             from .extraction import pdfium
 
+            print("Verifica runtime OCR e PDF", flush=True)
             languages = subprocess.run([os.environ["OE_TESSERACT"], "--list-langs"], check=True,
                                        capture_output=True, timeout=10).stdout.splitlines()
             if not {b"ita", b"eng"}.issubset(languages):
@@ -243,7 +244,9 @@ def main():
             with closing(sqlite3.connect(base / "local.sqlite")) as db:
                 if db.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
                     raise RuntimeError("Controllo SQLite non riuscito.")
+            print("Verifica worker AppContainer", flush=True)
             check_packaged_worker()
+            print("Verifica WebView2", flush=True)
             check_webview(url, startup_ready, base / "webview-probe")
             return
         if (args.webview or packaged) and not args.no_browser:

@@ -44,6 +44,8 @@ if ($InstallerPath) {
 }
 $data = Join-Path $env:TEMP ("OrderExtractor-verify-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $data | Out-Null
+$previousProbeLog = $env:OE_PROBE_LOG
+$env:OE_PROBE_LOG = Join-Path $data 'probe.log'
 try {
     $trial = Start-Process -FilePath $client -ArgumentList @(
         "--probe-version", $ReleaseVersion, "--data-dir", ('"' + $data + '"')
@@ -60,6 +62,10 @@ try {
         $trial.Dispose()
     }
 } finally {
+    if ($report.startup_probe -ne 'passed' -and (Test-Path -LiteralPath $env:OE_PROBE_LOG)) {
+        Get-Content -LiteralPath $env:OE_PROBE_LOG | Write-Host
+    }
+    $env:OE_PROBE_LOG = $previousProbeLog
     Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue
 }
 $json = $report | ConvertTo-Json
