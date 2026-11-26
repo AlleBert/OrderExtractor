@@ -40,9 +40,13 @@ def run_pdf_worker(arguments):
 
     try:
         validate_token()
-        directory = Path(arguments[0]).resolve(strict=True)
+        # The parent resolves the working directory before granting the container access.
+        # Re-resolving a Win32 path here can require inspecting protected parent folders.
+        directory = Path.cwd()
         worker(directory / "source.pdf", directory)
     except OSError as error:
+        if arguments[1:] == ["--trace-probe"]:
+            raise
         raise SystemExit(1) from error
 
 
