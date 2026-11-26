@@ -13,7 +13,7 @@ from playwright.sync_api import expect, sync_playwright
 
 from order_extractor import local
 from order_extractor.launcher import serve
-from order_extractor.preview_updates import PreviewUpdates, verifier_path
+from order_extractor.preview_updates import GitHubUpdates, verifier_path
 from order_extractor.version_store import VersionStore, durable_json
 
 
@@ -25,10 +25,10 @@ class PreviewLicense:
 def schedule(home, data, installed, expected):
     local.VERSION = installed
     ticket = "ci-synthetic-preview"
-    updates = PreviewUpdates(installed, home)
+    updates = GitHubUpdates(installed, home, preview=True)
     origin, service, thread = serve(lambda address: local.create_local(
         data, address, ticket, PreviewLicense(), installation=home,
-        preview_updates=updates, background=False,
+        github_updates=updates, background=False,
     ))
     try:
         with sync_playwright() as playwright:

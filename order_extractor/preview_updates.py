@@ -1,4 +1,4 @@
-"""Find and verify desktop updates from the public GitHub Preview channel."""
+"""Find and verify desktop updates from the public GitHub release channels."""
 
 import hashlib
 import json
@@ -15,7 +15,7 @@ from .version_store import SwitchError, release_key
 
 REPOSITORY = "AlleBert/OrderExtractor"
 RELEASES = f"https://api.github.com/repos/{REPOSITORY}/releases"
-TAG = re.compile(r"v([0-9.]{5,20})-preview")
+TAG = re.compile(r"v([0-9.]{5,20})(-preview)?")
 ASSET_HOSTS = {"github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"}
 MAX_METADATA = 2 * 1024 * 1024
 PROVENANCE = "desktop-provenance.sigstore.jsonl"
@@ -47,12 +47,12 @@ def read_asset(client, url, limit, consume, *, hosts):
     raise SwitchError("Troppi reindirizzamenti per l’aggiornamento.")
 
 
-def release_from(item, current):
-    if not isinstance(item, dict) or item.get("draft") is not False or item.get("prerelease") is not True:
+def release_from(item, current, *, preview):
+    if not isinstance(item, dict) or item.get("draft") is not False or item.get("prerelease") is not preview:
         return None
     tag = item.get("tag_name")
     match = TAG.fullmatch(tag) if isinstance(tag, str) else None
-    if not match:
+    if not match or bool(match[2]) != preview:
         return None
     version = match[1]
     try:
@@ -76,12 +76,13 @@ def release_from(item, current):
         sizes[name] = size
     if len(sizes) != 2:
         return None
-    return {"version": version, "channel": "GitHub Preview", "size": sizes[names[0]],
+    return {"version": version, "channel": "GitHub Preview" if preview else "Stabile", "size": sizes[names[0]],
             "notes": "", "tag": tag, "files": sizes}
 
 
-class PreviewUpdates:
-    def __init__(self, current, installation, *, transport=None):
+class GitHubUpdates:
+    def __init__(self, current, installation, *, preview, transport=None):
+        self.preview = preview
         self.current = current
         self.verifier = verifier_path(installation)
         self.transport = transport
@@ -94,16 +95,16 @@ class PreviewUpdates:
                 read_asset(client, url, MAX_METADATA, listing.extend, hosts={"api.github.com"})
                 items = json.loads(listing)
                 if not isinstance(items, list):
-                    raise SwitchError("Elenco delle anteprime non valido.")
-                releases = [release for item in items if (release := release_from(item, self.current))]
+                    raise SwitchError("Elenco delle release non valido.")
+                releases = [release for item in items if (release := release_from(item, self.current, preview=self.preview))]
                 if expected is None:
                     return max(releases, key=lambda release: release_key(release["version"]), default=None)
                 release = next((item for item in releases if item["version"] == expected), None)
                 if release is None or path is None:
-                    raise SwitchError("Anteprima richiesta non più disponibile.")
+                    raise SwitchError("Versione richiesta non più disponibile.")
                 return self._download(client, release, Path(path))
         except (httpx.HTTPError, KeyError, OSError, subprocess.SubprocessError, json.JSONDecodeError, TypeError) as error:
-            raise SwitchError("Impossibile scaricare o verificare l’anteprima GitHub.") from error
+            raise SwitchError("Impossibile scaricare o verificare l’aggiornamento GitHub.") from error
 
     def _download(self, client, release, directory_file):
         checksum = hashlib.sha256()

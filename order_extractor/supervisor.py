@@ -17,7 +17,7 @@ from platformdirs import user_data_dir
 
 from . import VERSION
 from .license import LicenseClient
-from .preview_updates import PreviewUpdates, verifier_path
+from .preview_updates import GitHubUpdates
 from .updates import Updates
 from .version_store import SwitchError, VersionStore, durable_json, release_key
 
@@ -71,12 +71,17 @@ def installed_config(store, version):
 
 def download_update(store, previous, version, package):
     resources, config = installed_config(store, previous)
-    if config.get("local_preview") and config.get("github_updates"):
-        return PreviewUpdates(previous, store.home).get(path=package, expected=version)
-    if not config.get("enable_updates"):
+    github_updates = config.get("github_updates")
+    if github_updates and config.get("local_preview"):
+        return GitHubUpdates(previous, store.home, preview=True).get(path=package, expected=version)
+    if not github_updates and not config.get("enable_updates"):
         raise SwitchError("Gli aggiornamenti sono disabilitati.")
     public = serialization.load_pem_public_key((resources / "lease-public.pem").read_bytes())
     license = LicenseClient(store.data, config["control_url"], public)
+    if github_updates:
+        if not license.status()["active"]:
+            raise SwitchError("Licenza non attiva.")
+        return GitHubUpdates(previous, store.home, preview=False).get(path=package, expected=version)
     channel, credential = license.update_access()
     updates = Updates(store.data / "updates", config["control_url"].rstrip("/") + "/api/v1/updates",
                       (resources / "update-root.json").read_bytes())
@@ -106,7 +111,7 @@ def apply_pending(store, *, fetch=download_update, health=None):
             raise SwitchError("La versione proposta non è più recente.")
         if health is None:
             _, config = installed_config(store, previous)
-            if config.get("local_preview") and config.get("github_updates"):
+            if config.get("github_updates"):
                 health = probe  # The archive was verified against GitHub build provenance before extraction.
             else:
                 thumbprint = config["publisher_thumbprint"]
@@ -127,7 +132,7 @@ def apply_pending(store, *, fetch=download_update, health=None):
 
 def main():
     home = Path(sys.executable).resolve().parent
-    preview = verifier_path(home).is_file()
+    preview = (home / "_internal" / "order-extractor-preview").is_file()
     product = "OrderExtractorPreview" if preview else "OrderExtractor"
     data = Path(user_data_dir(product, appauthor=False))
     store = VersionStore(home, data, data_subdir="demo" if preview else None)
@@ -142,7 +147,7 @@ def main():
                 current = store.current()
                 if release_key(VERSION) > release_key(current) and store.executable(VERSION).is_file():
                     _, config = installed_config(store, VERSION)
-                    if config.get("local_preview"):
+                    if config.get("local_preview") or config.get("github_updates"):
                         durable_json(store.pointer, {"version": VERSION})
                         current = VERSION
                 executable = store.executable(current)

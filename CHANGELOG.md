@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+
+- Prima build stabile di Order Extractor per Windows 11 x64, con attivazione tramite seriale.
+- Aggiornamenti in-app delle release stabili, con verifica dell’attestazione GitHub del pacchetto.
+- Console licenze privata con accesso dal browser tramite Keycloak e Authenticator.
+
 ## 0.1.4
 
 Nuova anteprima distribuita anche come aggiornamento in-app dalla 0.1.3. La pipeline include un collaudo Windows del percorso di aggiornamento.

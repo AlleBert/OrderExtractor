@@ -4,13 +4,9 @@ Order Extractor estrae le righe dagli ordini PDF, permette di correggerle ed esp
 
 ## Scarica per Windows
 
-Apri [GitHub Releases](https://github.com/AlleBert/OrderExtractor/releases), scegli una prerelease e scarica `OrderExtractor-<versione>-x64.exe` dagli asset. L’anteprima richiede Windows 11 x64 e Microsoft Edge WebView2. È un installer per utente senza firma Authenticode. Avvia **Order Extractor Preview** dal menu Start dopo l’installazione. Dalla versione 0.1.1 la release include il checksum e l’attestazione GitHub Actions. [Come verificare il download](docs/github-releases.md#controllare-linstaller).
+Apri [GitHub Releases](https://github.com/AlleBert/OrderExtractor/releases/latest) e scarica `OrderExtractor-<versione>-x64.exe`. L’app richiede Windows 11 x64, Microsoft Edge WebView2 e un seriale emesso dal gestore. Avvia **Order Extractor** dal menu Start e attiva la licenza mentre sei online. L’installer include Tesseract. [Come verificare il download](docs/github-releases.md#controllare-linstaller)
 
-L’anteprima crea e attiva una licenza demo locale, include Tesseract e offre un ordine sintetico per la prima prova. Usa **Usa l’ordine demo** oppure carica un PDF locale.
-
-Dalla versione 0.1.3 puoi anche installare le nuove anteprime da **Impostazioni → Aggiornamenti**. [Come aggiornare dall’app](docs/github-releases.md#aggiornare-lanteprima-dallapp)
-
-Per provare la creazione di seriali e la gestione delle postazioni, avvia la demo dai sorgenti. [Accesso alla dashboard](docs/operations.md#dashboard)
+In **Impostazioni → Aggiornamenti** puoi cercare le nuove versioni stabili. L’app verifica l’attestazione GitHub del pacchetto e prova la nuova versione prima di attivarla.
 
 ## Prova l’app dai sorgenti
 

@@ -1,6 +1,6 @@
 [project]
 name = "order-extractor"
-version = "0.1.4"
+version = "1.0.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.141.1", "uvicorn==0.52.1", "python-multipart==0.0.32",

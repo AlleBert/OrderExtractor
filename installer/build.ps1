@@ -20,6 +20,7 @@ if ($LocalPreview) {
 } elseif (!$ControlUrl -or !$LeasePublicKey -or ([uri]$ControlUrl).Scheme -ne "https") {
     throw "Specifica l’URL HTTPS del control plane e la sua chiave pubblica"
 }
+if ($UpdateTrustedRoot -and $GitHubCliDirectory) { throw "Configura una sola origine degli aggiornamenti" }
 if ($UpdateTrustedRoot -and !$PublisherThumbprint) { throw "Gli aggiornamenti integrati richiedono una firma Authenticode" }
 if ($PublisherThumbprint -and ($PublisherThumbprint -notmatch '^[0-9A-Fa-f]{40}$' -or !$TimestampUrl)) {
     throw "Specifica il thumbprint del certificato e il servizio di timestamp"
@@ -57,10 +58,14 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 $config = Join-Path $stage "desktop-config.json"
 $launcherData = @()
 if ($GitHubCliDirectory) {
-    if (!$LocalPreview) { throw "Il verificatore GitHub è destinato all’anteprima locale" }
     $gh = (Resolve-Path (Join-Path $GitHubCliDirectory "bin\gh.exe")).Path
     $ghLicense = (Resolve-Path (Join-Path $GitHubCliDirectory "LICENSE")).Path
     $launcherData = @("--add-data", "$gh;github-cli", "--add-data", "$ghLicense;github-cli")
+}
+if ($LocalPreview) {
+    $marker = Join-Path $stage "order-extractor-preview"
+    Set-Content -LiteralPath $marker -Value "preview" -Encoding ascii
+    $launcherData += @("--add-data", "$marker;.")
 }
 $modeData = if ($LocalPreview) {
     @("--add-data", "order_extractor/sample.pdf;order_extractor")

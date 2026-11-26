@@ -33,7 +33,8 @@ def signed_role(role, signer):
 
 
 @pytest.fixture
-def repository():
+def repository(monkeypatch):
+    monkeypatch.setattr("order_extractor.updates.VERSION", "0.1.0")
     keys = {role: CryptoSigner.generate_ed25519() for role in ROLE_NAMES}
     now = datetime.now(timezone.utc)
     root = Root(expires=now + timedelta(days=90))

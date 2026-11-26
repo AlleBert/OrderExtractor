@@ -291,7 +291,7 @@ class Job:
 
 
 def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, installation=None, *,
-                 background=True, startup_ready=None, preview_updates=None):
+                 background=True, startup_ready=None, github_updates=None):
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     store = LocalStore(base)
     guard = threading.RLock()
@@ -425,8 +425,8 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
             except (OSError, ValueError, KeyError, TypeError):
                 pass
         return {"version": VERSION, "license": licensing.status(), "sample": sample is not None,
-                "diagnostics": store.diagnostics_enabled(), "updates": updates is not None or preview_updates is not None,
-                "startup_check": startup_ready is not None, "preview_updates": preview_updates is not None,
+                "diagnostics": store.diagnostics_enabled(), "updates": updates is not None or github_updates is not None,
+                "startup_check": startup_ready is not None, "preview_updates": bool(github_updates and github_updates.preview),
                 "managed_updates": installation is not None, "update_feedback": feedback,
                 "update_pending": installation is not None and (installation / REQUEST).is_file()}
 
@@ -446,10 +446,10 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
             raise HTTPException(403, str(error)) from error
 
     def available_update(package):
-        if preview_updates is not None:
+        if github_updates is not None:
             if not licensing.status().get("active"):
-                raise HTTPException(403, "Licenza demo non attiva.")
-            return preview_updates.get()
+                raise HTTPException(403, "Licenza non attiva.")
+            return github_updates.get()
         channel, credential = update_access()
         return updates.get(channel, credential, package=package)
 
