@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3 Beta
+
+La tabella viene ricomposta prima di interpellare Ollama. Il modello restituisce i valori
+in JSON e l’app li confronta con le celle della stessa riga nel PDF.
+
 ## 1.0.2 Beta
 
 - Estrazione con Ollama locale avviata al caricamento del PDF e avanzamento in app.

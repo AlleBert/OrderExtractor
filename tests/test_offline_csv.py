@@ -32,11 +32,11 @@ def test_layout_is_cropped_and_inference_reports_stream_progress(tmp_path):
             return httpx.Response(200, json={"models": [{"name": MODEL}]})
         data = json.loads(request.content)
         assert data["stream"] and data["options"]["num_ctx"] == 4096
-        assert set(data["format"]["$defs"]["RowSelection"]["properties"]) == {"a", "d", "q", "p"}
+        assert set(data["format"]["$defs"]["ModelRow"]["properties"]) == {"a", "d", "q", "p"}
         prompt = data["messages"][1]["content"]
         assert all(text not in prompt for text in ("Anagrafica", "Totale ordine", "Note riservate"))
-        cells = {text: identifier for line in json.loads(prompt) for identifier, _, text in line}
-        row = {"a": cells["A-123"], "d": [cells["Rondella"]], "q": cells["2,00"], "p": cells["4,50"]}
+        assert "A-123 | Rondella | 2,00 | 4,50" in prompt
+        row = {"a": "A-123", "d": "Rondella", "q": "2,00", "p": "4,50"}
         encoded = json.dumps({"rows": [row]})
         events = [{"message": {"content": encoded[:12]}, "done": False},
                   {"message": {"content": encoded[12:]}, "done": False}, {"done": True}]

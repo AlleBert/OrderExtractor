@@ -21,9 +21,9 @@ def test_ollama_receives_schema_and_returns_source_grounded_rows():
         body = json.loads(request.content)
         assert body["format"]["additionalProperties"] is False
         assert body["options"]["num_gpu"] == 0
-        assert json.loads(body["messages"][1]["content"])[0][0] == ["c1", .05, "ART-101"]
+        assert body["messages"][1]["content"] == "ART-101 | Guarnizione | 2,00 | 8,20"
         return httpx.Response(200, json={"done": True, "message": {"content": json.dumps({"rows": [{
-            "article": "c1", "description": ["c2"], "quantity": "c3", "unit_price": "c4"
+            "a": "ART-101", "d": "Guarnizione", "q": "2,00", "p": "8,20"
         }]})}})
 
     rows, document = infer_page(page, 0, "it", transport=httpx.MockTransport(responder))
@@ -58,3 +58,41 @@ def test_rapidocr_converts_pixel_boxes_to_page_coordinates():
     assert [(word.text, word.x0, word.y0, word.x1, word.y1) for word in words] == [
         ("A-123", .1, .1, .5, .2)
     ]
+
+
+@pytest.mark.parametrize("bad_price", [False, True])
+def test_wrapped_rows_match_literals_and_reject_cross_row_values(bad_price):
+    lines = [
+        [("Articolo", .06), ("Descrizione", .22), ("Quantita", .60), ("PREZZO", .79)],
+        [("UNIT.", .8)],
+        [("Componente standard -", .22)],
+        [("A-01", .06), ("2,00", .60), ("€ 8,20", .79)],
+        [("finitura zincata", .22)],
+        [("B-02", .06), ("Guarnizione", .22), ("6,00", .60), ("€ 12,50", .79)],
+    ]
+    page = CachedText(engine="testo PDF", lines=[
+        [CachedWord(text=text, x0=x, x1=x + .06, y0=.16 + i * .012, y1=.167 + i * .012)
+         for text, x in line] for i, line in enumerate(lines)
+    ])
+
+    def responder(request):
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": MODEL}]})
+        sent = json.loads(request.content)["messages"][1]["content"]
+        assert "PREZZO UNIT." in sent
+        assert "A-01 | Componente standard - finitura zincata | 2,00 | € 8,20" in sent
+        candidate = {"rows": [
+            {"a": "A-01", "d": "Componente standard - finitura zincata", "q": "2,00",
+             "p": "12,50" if bad_price else "8,20"},
+            {"a": "B-02", "d": "Guarnizione", "q": "6,00", "p": "12,50"},
+        ]}
+        return httpx.Response(200, json={"done": True, "message": {"content": json.dumps(candidate)}})
+
+    if bad_price:
+        with pytest.raises(ValueError, match="riga verificabile"):
+            infer_page(page, 0, "it", transport=httpx.MockTransport(responder))
+    else:
+        _, document = infer_page(page, 0, "it", transport=httpx.MockTransport(responder))
+        assert [(row.article, row.quantity, row.unit_price) for row in document.rows] == [
+            ("A-01", "2.00", "8.20"), ("B-02", "6.00", "12.50"),
+        ]
