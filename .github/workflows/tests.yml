@@ -82,7 +82,8 @@ jobs:
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`""
           ) -Wait -PassThru
           if ($setup.ExitCode -ne 0) { Get-Content $log; throw "Installer exit $($setup.ExitCode)" }
-          ./installer/verify.ps1 -ReleaseVersion $version -InstallerPath $installer.Path `
+          $client = Join-Path $env:LOCALAPPDATA "Programs/Order Extractor Preview/versions/$version/OrderExtractor.exe"
+          ./installer/verify.ps1 -ReleaseVersion $version -ClientPath $client -InstallerPath $installer.Path `
             -ReportPath 'dist/installer/verification.json'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

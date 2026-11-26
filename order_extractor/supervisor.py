@@ -131,7 +131,13 @@ def main():
                         raise SwitchError("Versione iniziale mancante.")
                     durable_json(store.pointer, {"version": VERSION})
                 apply_pending(store)
-                executable = store.executable(store.current())
+                current = store.current()
+                if release_key(VERSION) > release_key(current) and store.executable(VERSION).is_file():
+                    _, config = installed_config(store, VERSION)
+                    if config.get("local_preview"):
+                        durable_json(store.pointer, {"version": VERSION})
+                        current = VERSION
+                executable = store.executable(current)
             return subprocess.run([executable], cwd=executable.parent, check=False).returncode
     except Timeout:
         return 0

@@ -87,7 +87,9 @@ Sign-ReleaseFile "dist\OrderExtractor\OrderExtractor.exe"
 Sign-ReleaseFile "dist\OrderExtractorLauncher\OrderExtractorLauncher.exe"
 $version = (uv run --locked python -c "from order_extractor import VERSION; import tomllib; assert VERSION == tomllib.load(open('pyproject.toml','rb'))['project']['version']; print(VERSION)").Trim()
 if ($LASTEXITCODE -or !$version) { throw "Versione progetto non valida" }
-& $InnoCompiler "/DReleaseVersion=$version" "installer\order-extractor.iss"
+$installerDefines = @("/DReleaseVersion=$version")
+if ($LocalPreview) { $installerDefines += "/DLocalPreview=1" }
+& $InnoCompiler @installerDefines "installer\order-extractor.iss"
 if ($LASTEXITCODE) { throw "Compilazione Inno Setup non riuscita" }
 $installer = "dist\installer\OrderExtractor-$version-x64.exe"
 Sign-ReleaseFile $installer

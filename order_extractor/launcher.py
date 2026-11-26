@@ -144,7 +144,8 @@ def main():
         os.environ["OE_TESSERACT"] = str(runtime / "tesseract.exe")
         os.environ["TESSDATA_PREFIX"] = str(runtime / "tessdata")
         os.environ["OE_OCR_LANGS"] = config.get("ocr_languages", "eng")
-    base = args.data_dir or Path(user_data_dir("OrderExtractor", appauthor=False))
+    product = "OrderExtractorPreview" if local_preview else "OrderExtractor"
+    base = args.data_dir or Path(user_data_dir(product, appauthor=False))
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
     handles = []
     stop = threading.Event()

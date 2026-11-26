@@ -1,9 +1,17 @@
+#ifdef LocalPreview
+  #define ProductId "OrderExtractorPreview"
+  #define ProductName "Order Extractor Preview"
+#else
+  #define ProductId "OrderExtractor"
+  #define ProductName "Order Extractor"
+#endif
+
 [Setup]
-AppId=OrderExtractor
-AppName=Order Extractor
+AppId={#ProductId}
+AppName={#ProductName}
 AppVersion={#ReleaseVersion}
-DefaultDirName={localappdata}\Programs\Order Extractor
-DefaultGroupName=Order Extractor
+DefaultDirName={localappdata}\Programs\{#ProductName}
+DefaultGroupName={#ProductName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -22,10 +30,10 @@ Source: "..\dist\OrderExtractorLauncher\*"; DestDir: "{app}"; Flags: ignoreversi
 Source: "..\dist\OrderExtractor\*"; DestDir: "{app}\versions\{#ReleaseVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Order Extractor"; Filename: "{app}\OrderExtractorLauncher.exe"
+Name: "{autoprograms}\{#ProductName}"; Filename: "{app}\OrderExtractorLauncher.exe"
 
 [Run]
-Filename: "{app}\OrderExtractorLauncher.exe"; Description: "Avvia Order Extractor"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\OrderExtractorLauncher.exe"; Description: "Avvia {#ProductName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\versions"
