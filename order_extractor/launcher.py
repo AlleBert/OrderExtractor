@@ -26,6 +26,7 @@ from filelock import FileLock, Timeout
 from platformdirs import user_data_dir
 
 from . import VERSION
+from .admin_login import AdminLogin
 from .control import create_control, demo_key, un64
 from .license import LicenseClient
 from .local import create_local
@@ -188,8 +189,14 @@ def main():
             payload_lock.acquire()
         if args.mode == "server":
             key = serialization.load_pem_private_key(Path(os.environ["OE_SIGNING_KEY"]).read_bytes(), password=None)
+            verifier = admin_verifier()
+            admin_origin = os.environ.get("OE_ADMIN_ORIGIN")
+            login = None
+            if admin_origin:
+                login = AdminLogin(admin_origin, os.environ["OE_OIDC_ISSUER"], os.environ["OE_OIDC_AUDIENCE"],
+                                   admin_jwks_url(), verifier)
             app = create_control(os.environ["OE_DATABASE"], key, un64(os.environ["OE_PEPPER"]),
-                                 admin_auth=admin_verifier(), updates_root=os.environ.get("OE_UPDATES_ROOT"))
+                                 admin_auth=verifier, admin_login=login, updates_root=os.environ.get("OE_UPDATES_ROOT"))
             uvicorn.run(app, host=os.environ.get("OE_BIND", "127.0.0.1"), port=args.port or 8100, access_log=False)
             return
         if args.mode == "demo" or local_preview:

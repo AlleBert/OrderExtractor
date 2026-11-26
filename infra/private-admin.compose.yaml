@@ -1,6 +1,7 @@
 services:
   api:
     environment:
+      OE_ADMIN_ORIGIN: ${OE_ADMIN_ORIGIN:-}
       OE_ADMIN_SUBJECT: ${OE_ADMIN_SUBJECT:?Imposta il claim sub del tuo amministratore OIDC}
     ports:
       - "127.0.0.1:18100:8100"

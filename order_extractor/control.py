@@ -30,6 +30,7 @@ from sqlalchemy import (
     select,
 )
 
+from .admin_login import AuthorizationCode
 from .telemetry import Batch
 from .updates import CHANNELS
 
@@ -127,7 +128,7 @@ class LicenseChange(Strict):
     channel: str = Field(pattern="^(dev|beta|stable)$")
 
 
-def create_control(database, signing_key, pepper, *, demo_token=None, admin_auth=None, updates_root=None):
+def create_control(database, signing_key, pepper, *, demo_token=None, admin_auth=None, admin_login=None, updates_root=None):
     if len(pepper) < 32:
         raise ValueError("OE_PEPPER deve contenere almeno 32 byte casuali.")
     if demo_token is None and admin_auth is None:
@@ -202,6 +203,10 @@ def create_control(database, signing_key, pepper, *, demo_token=None, admin_auth
                 return admin_auth(token)
             except (jwt.PyJWTError, ValueError, KeyError):
                 pass
+        if admin_login:
+            identity = admin_login.identity(authorization)
+            if identity:
+                return identity
         raise HTTPException(401, "Autenticazione amministrativa richiesta.")
 
     def writable(identity):
@@ -212,6 +217,27 @@ def create_control(database, signing_key, pepper, *, demo_token=None, admin_auth
     @app.get("/")
     def dashboard():
         return FileResponse(web / "admin.html")
+
+    @app.get("/auth/status")
+    def admin_status():
+        return {"oidc": admin_login is not None}
+
+    if admin_login is not None:
+        @app.get("/auth/callback")
+        def admin_callback():
+            return dashboard()
+
+        @app.post("/auth/login")
+        def admin_start(request: Request):
+            return admin_login.start(request)
+
+        @app.post("/auth/exchange")
+        def admin_exchange(request: Request, data: AuthorizationCode):
+            return admin_login.exchange(request, data)
+
+        @app.post("/auth/logout", status_code=204)
+        def admin_logout(request: Request, authorization: str = Header(default="")):
+            return admin_login.logout(request, authorization)
 
     @app.get("/assets/{name}")
     def asset(name: str):

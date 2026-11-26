@@ -22,13 +22,21 @@ Dal tuo PC nel tailnet apri l’URL privato di Keycloak e accedi con l’amminis
 
 Per verificare il flusso, inserisci un nuovo codice dispositivo in una finestra privata e controlla che Keycloak richieda realmente password e OTP. Dopo la registrazione iniziale di Authenticator, ripeti il test con un nuovo codice per verificare l’OTP. Verifica che il token abbia `aud` con `order-extractor-console`, `amr` con `mfa` e `roles` con `owner`.
 
+### Accesso quotidiano dal browser
+
+Per il client pubblico `order-extractor-console` abilita **Standard flow** e imposta **Proof Key for Code Exchange Code Challenge Method** a **S256**. In **Valid redirect URIs** aggiungi l’indirizzo esatto `https://server.tailnet.ts.net:10443/auth/callback`. Il callback si apre nella stessa scheda. Lascia vuoti i **Web origins** se non servono ad altre integrazioni, perché lo scambio del codice avviene tra API e Keycloak nella rete Docker. Mantieni il flusso Browser con password e OTP e i mapper dei claim.
+
+Imposta `OE_ADMIN_ORIGIN=https://server.tailnet.ts.net:10443` nel file `.env` dello stack licenze e ricrea il servizio API con i file Compose del punto 3. Apri la console da un dispositivo nel tailnet, fai clic su **Accedi con Authenticator** e completa password e OTP. La sessione della console resta nella scheda e dura al massimo 15 minuti, entro la scadenza del token Keycloak. **Esci** la revoca. Il riavvio del servizio chiude le sessioni attive.
+
+### Diagnosi del flusso Device Authorization
+
 Dal server, con `curl` e `jq` disponibili, chiedi un token per la console:
 
 ```sh
 ./scripts/keycloak-admin-token.sh https://server.tailnet.ts.net:10444/realms/order-extractor
 ```
 
-Apri nel browser indicato l’URL di verifica e inserisci il codice mostrato nel terminale. Completa l’autenticazione con Authenticator. Il comando stampa il token da copiare nel campo **Token di accesso** della console. Il token va usato solo nell’URL privato della console.
+Apri nel browser indicato l’URL di verifica e inserisci il codice mostrato nel terminale. Completa l’autenticazione con Authenticator. Il comando emette un token per il collaudo amministrativo nella rete privata. Il login quotidiano della console usa il flusso Browser quando è configurato `OE_ADMIN_ORIGIN`.
 
 ### Se il DNS del nodo punta a Funnel
 

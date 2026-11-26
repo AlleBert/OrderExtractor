@@ -1,5 +1,9 @@
 const byId = id => document.getElementById(id);
-let token = "", resource = "";
+const sessionKey = "oe-admin-session";
+const loginKey = "oe-admin-login";
+const callback = location.pathname === "/auth/callback" ? new URLSearchParams(location.search) : null;
+if (callback) history.replaceState(null, "", "/");
+let token = "", session = "", resource = "";
 const columns = {
   customers:[["name","Ragione sociale"],["status","Stato"]],
   licenses:[["prefix","Prefisso"],["customer_id","Cliente"],["status","Stato"],["seats","Posti"],["offline_days","Giorni offline"],["channel","Canale"],["valid_until","Scadenza"]],
@@ -9,12 +13,21 @@ const columns = {
 };
 const timeFields = new Set(["valid_until", "last_seen", "recorded"]);
 
-async function api(path, method="GET", data) {
-  const response = await fetch("/api/v1/admin/" + path, {method,
-    headers:{"Authorization":"Bearer " + token,"Content-Type":"application/json"},
+async function request(path, method="GET", data, authorization="") {
+  const headers = {"Content-Type":"application/json"};
+  if (authorization) headers.Authorization = authorization;
+  const response = await fetch(path, {method, headers, redirect:"error",
     body: method === "GET" ? undefined : JSON.stringify(data || {})});
-  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Operazione non riuscita.");
+  if (!response.ok) {
+    if (response.status === 401 && authorization.startsWith("Session ")) clearSession();
+    throw new Error((await response.json().catch(() => ({}))).message || "Operazione non riuscita.");
+  }
   return response.status === 204 ? null : response.json();
+}
+
+function api(path, method="GET", data) {
+  const authorization = session ? "Session " + session : token ? "Bearer " + token : "";
+  return request("/api/v1/admin/" + path, method, data, authorization);
 }
 
 async function run(action) {
@@ -94,18 +107,57 @@ async function load(name) {
   }
 }
 
+async function openConsole() {
+  await load("customers");
+  byId("oidc-login").hidden = true;
+  byId("session").hidden = true;
+  byId("tools").hidden = false;
+  byId("exit").hidden = false;
+}
+
+function clearSession() {
+  const browserLogin = Boolean(session);
+  if (browserLogin) sessionStorage.removeItem(sessionKey);
+  token = ""; session = "";
+  byId("tools").hidden = true; byId("exit").hidden = true;
+  byId("oidc-login").hidden = !browserLogin; byId("session").hidden = browserLogin;
+  byId("serial").hidden = true; byId("serial").textContent = ""; byId("results").replaceChildren();
+}
+
 byId("session").onsubmit = event => {
   event.preventDefault();
   token = byId("token").value.trim();
   byId("token").value = "";
-  run(async () => {
-    await load("customers"); byId("tools").hidden = false; byId("exit").hidden = false;
-  });
+  run(openConsole);
 };
-byId("exit").onclick = () => {
-  token = ""; byId("tools").hidden = true; byId("exit").hidden = true;
-  byId("serial").hidden = true; byId("serial").textContent = ""; byId("results").replaceChildren();
-};
+byId("oidc-login").onclick = () => run(async () => {
+  const login = await request("/auth/login", "POST");
+  sessionStorage.setItem(loginKey, JSON.stringify({state:login.state, proof:login.proof}));
+  location.assign(login.url);
+});
+byId("exit").onclick = () => run(async () => {
+  if (session) await request("/auth/logout", "POST", {}, "Session " + session);
+  clearSession();
+});
+
+run(async () => {
+  const status = await request("/auth/status");
+  byId("oidc-login").hidden = !status.oidc;
+  byId("session").hidden = status.oidc;
+  if (!status.oidc) return;
+  if (callback) {
+    const login = JSON.parse(sessionStorage.getItem(loginKey) || "null");
+    sessionStorage.removeItem(loginKey);
+    const code = callback.get("code");
+    if (!login || !code || callback.get("state") !== login.state || callback.has("error")) {
+      throw new Error("Accesso non riuscito. Riprova con Authenticator.");
+    }
+    const result = await request("/auth/exchange", "POST", {...login, code});
+    sessionStorage.setItem(sessionKey, result.session);
+  }
+  session = sessionStorage.getItem(sessionKey) || "";
+  if (session) await openConsole();
+});
 for (const item of document.querySelectorAll("[data-resource]")) item.onclick = () => run(async () => {
   byId("serial").textContent = ""; byId("serial").hidden = true;
   await load(item.dataset.resource);
