@@ -20,6 +20,7 @@ from starlette.background import BackgroundTask
 
 from . import VERSION
 from .core import NumberStyle, Revision, export, validate
+from .local_ai import check_model, infer_page, read_ai_page
 from .manual import (
     ColumnRules,
     PageMapping,
@@ -45,7 +46,7 @@ ROOT = Path(__file__).parent / "web"
 COOKIE = "oe_session"
 
 
-def worker(path, directory):
+def worker(path, directory, rapid_ocr=False):
     from .extraction import extract
 
     path = Path(path)
@@ -60,7 +61,7 @@ def worker(path, directory):
         def progress(index, total):
             write("progress", {"checked": index, "total": total})
 
-        result = extract(path, directory, progress)
+        result = extract(path, directory, progress, rapid_ocr=rapid_ocr)
         write("result", result)
     except ValueError as error:
         write("result", {"error": str(error)[:500]})
@@ -186,8 +187,12 @@ class UpdateSelection(BaseModel):
     version: str = Field(pattern=f"^{RELEASE}$")
 
 
+class AISelection(BaseModel):
+    revision: int = Field(ge=0)
+
+
 class Job:
-    def __init__(self, path, token, document_hash, duplicate, temp):
+    def __init__(self, path, token, document_hash, duplicate, temp, rapid_ocr=False):
         self.token = token
         self.document_hash = document_hash
         self.duplicate = duplicate
@@ -202,12 +207,13 @@ class Job:
         self.approved = None
         self.header_anchors = []
         self.manual_rules = {}
+        self.ai_documents = {}
         if os.name == "nt" and getattr(sys, "frozen", False):
             from .windows_appcontainer import AppContainerProcess
 
             self.process = AppContainerProcess(Path(sys.executable), ["--pdf-worker", str(self.directory)], self.directory)
         else:
-            self.process = WorkerProcess(worker, (path, self.directory), self.directory)
+            self.process = WorkerProcess(worker, (path, self.directory, rapid_ocr), self.directory)
 
     def refresh(self, store):
         if self.status != "running":
@@ -291,12 +297,13 @@ class Job:
 
 
 def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, installation=None, *,
-                 background=True, startup_ready=None, github_updates=None):
+                 background=True, startup_ready=None, github_updates=None, local_ai=False, rapid_ocr=False):
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     store = LocalStore(base)
     guard = threading.RLock()
     privacy_lock = threading.RLock()
     update_lock = threading.Lock()
+    ai_lock = threading.Lock()
     session = secrets.token_urlsafe(32)
     job = None
     staged = None
@@ -426,7 +433,7 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 pass
         return {"version": VERSION, "license": licensing.status(), "sample": sample is not None,
                 "diagnostics": store.diagnostics_enabled(), "updates": updates is not None or github_updates is not None,
-                "startup_check": startup_ready is not None, "preview_updates": bool(github_updates and github_updates.preview),
+                "startup_check": startup_ready is not None, "local_ai": local_ai, "preview_updates": bool(github_updates and github_updates.preview),
                 "managed_updates": installation is not None, "update_feedback": feedback,
                 "update_pending": installation is not None and (installation / REQUEST).is_file()}
 
@@ -631,7 +638,7 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 duplicate = bool(store.query("SELECT 1 FROM history WHERE hash=? LIMIT 1", (document_hash,)))
                 if job:
                     job.stop()
-                job = Job(path, str(uuid.uuid4()), document_hash, duplicate, temp)
+                job = Job(path, str(uuid.uuid4()), document_hash, duplicate, temp, rapid_ocr=rapid_ocr)
                 return job.view(store)
             except OSError as error:
                 temp.cleanup()
@@ -715,11 +722,82 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
             missing = f"Pagina {index + 1}: nessuna nuova riga individuata."
             current.result["notices"] = [notice for notice in current.result["notices"] if notice != missing]
             current.result["mapped_pages"] = sorted(set(current.result.get("mapped_pages", [])) | {index})
+            current.ai_documents.pop(index, None)
+            current.result["ai_pages"] = sorted(current.ai_documents)
             key = confirmed_header(current.header_anchors, index, mapping)
             current.manual_rules.pop(index, None)
             if key:
                 current.manual_rules[index] = (key, ColumnRules(right=mapping.right, columns=mapping.columns))
             return current.view(store)
+
+    @app.get("/api/local-ai/status")
+    def ai_status():
+        if not local_ai:
+            raise HTTPException(404)
+        try:
+            return check_model()
+        except ValueError as error:
+            raise HTTPException(503, str(error)) from error
+
+    @app.post("/api/jobs/{token}/pages/{index}/ai")
+    def retry_with_ai(token: str, index: int, selection: AISelection):
+        if not local_ai:
+            raise HTTPException(404)
+        if not ai_lock.acquire(blocking=False):
+            raise HTTPException(409, "È già in corso un’analisi con AI locale.")
+        try:
+            with guard:
+                current = updated(token, selection)
+                if not licensing.status()["active"]:
+                    raise HTTPException(403, "Serve una licenza valida.")
+                if index not in current.result.get("mappable_pages", []):
+                    raise HTTPException(404, "Testo della pagina non disponibile.")
+                try:
+                    cached = read_ai_page(current.directory, index)
+                except (OSError, ValueError) as error:
+                    raise HTTPException(422, "Testo della pagina non disponibile.") from error
+                style = current.data.number_style
+            try:
+                proposed, document = infer_page(cached, index, style)
+            except ValueError as error:
+                raise HTTPException(422, str(error)) from error
+            if not proposed:
+                raise HTTPException(422, "L’AI locale non ha trovato righe articolo nella pagina.")
+            with guard:
+                current = updated(token, selection)
+                if not licensing.status()["active"]:
+                    raise HTTPException(403, "Serve una licenza valida.")
+                try:
+                    rows = replace_page(current.data.rows, index, proposed)
+                except ValueError as error:
+                    raise HTTPException(422, str(error)) from error
+                store.query("UPDATE history SET status='needs_review',rows=? WHERE id=?", (len(rows), token))
+                current.data = current.data.model_copy(update={"rows": rows, "revision": selection.revision + 1,
+                                                               "reviewed": False})
+                current.approved = None
+                current.status = "needs_review"
+                current.result["layout_key"] = None
+                missing = f"Pagina {index + 1}: nessuna nuova riga individuata."
+                current.result["notices"] = [notice for notice in current.result["notices"] if notice != missing]
+                current.result["mapped_pages"] = [page for page in current.result.get("mapped_pages", []) if page != index]
+                current.manual_rules.pop(index, None)
+                current.ai_documents[index] = document
+                current.result["ai_pages"] = sorted(current.ai_documents)
+                return current.view(store)
+        finally:
+            ai_lock.release()
+
+    @app.get("/api/jobs/{token}/pages/{index}/ai.json")
+    def ai_json(token: str, index: int):
+        if not local_ai:
+            raise HTTPException(404)
+        with guard:
+            document = find(token).ai_documents.get(index)
+            if document is None:
+                raise HTTPException(404)
+            return JSONResponse(document.model_dump(), headers={
+                "Content-Disposition": f'attachment; filename="righe-pagina-{index + 1}.json"'
+            })
 
     @app.post("/api/jobs/{token}/approve")
     def approve(token: str, data: Revision):

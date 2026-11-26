@@ -55,6 +55,7 @@ function App() {
   const [profileName, setProfileName] = useState("");
   const [bindLayout, setBindLayout] = useState(false);
   const [mapping, setMapping] = useState(null);
+  const [aiStatus, setAIStatus] = useState("");
   const [capture, setCapture] = useState("top");
   const fileInput = useRef(null);
   const confirmation = useRef(null);
@@ -278,6 +279,21 @@ function App() {
                 </div></div>
                 <div className="preview-foot"><span>{job.mapped_pages?.includes(page) ? "Mappatura manuale" : job.engines[page]}</span>{!mapping && job.mappable_pages?.includes(page) &&
                   <button className="button outline" disabled={!!busy} onClick={() => openMapping()}>Mappa colonne</button>}</div>
+                {status.local_ai && !mapping && job.mappable_pages?.includes(page) && <div className="preview-foot">
+                  <button className="button outline" disabled={!!busy || dirty || !status.license.active} onClick={() => {
+                    if (draft.rows.some(row => row.source_spans?.some(span => span.page_index === page)) &&
+                        !window.confirm("Sostituire le righe di questa pagina con la proposta AI?")) return;
+                    run("Analisi con AI locale", async () => {
+                      const result = await api(`/api/jobs/${job.token}/pages/${page}/ai`, {
+                        method:"POST", body:JSON.stringify({revision:job.revision})
+                      });
+                      receive(result);
+                      setSelected("");
+                    });
+                  }}>Riprova con AI locale</button>
+                  {job.ai_pages?.includes(page) && <a className="button outline"
+                    href={`/api/jobs/${job.token}/pages/${page}/ai.json`}>Scarica proposta JSON</a>}
+                </div>}
                 {!mapping && savedColumns && <div className="preview-foot"><span>Profilo colonne <strong>{savedColumns.name}</strong></span>
                   <button className="button outline" disabled={!!busy} onClick={() => openMapping(savedColumns)}>Usa colonne salvate</button></div>}
                 {mapping && <form className="manual-mapping" onSubmit={event => {event.preventDefault(); run("Mappatura", applyMapping);}}>
@@ -372,7 +388,15 @@ function App() {
             });}}><label>Nome del profilo<input value={profileName} required maxLength={80} onChange={event => setProfileName(event.target.value)}/></label>
               {job.can_learn_layout && !dirty && <label className="privacy-toggle"><input type="checkbox" checked={bindLayout} onChange={event => setBindLayout(event.target.checked)}/>Suggerisci il profilo per ordini con questo layout</label>}
               <button className="button primary" disabled={!!busy}>Salva impostazioni correnti</button></form> : <p className="mute">Apri un ordine per salvare le sue impostazioni come profilo.</p>}
-          </section><section className="panel settings-card"><h2>Privacy</h2>
+          </section>{status.local_ai && <section className="panel settings-card"><h2>AI locale</h2>
+            <p>Installa Ollama sul PC e scarica il modello con <code>ollama pull qwen2.5:3b</code>.</p>
+            <button className="button outline" disabled={!!busy} onClick={() => run("Verifica Ollama", async () => {
+              setAIStatus("");
+              const result = await api("/api/local-ai/status");
+              setAIStatus(`Pronto: ${result.model}`);
+            })}>Verifica Ollama</button>
+            {aiStatus && <p role="status">{aiStatus}</p>}
+          </section>}<section className="panel settings-card"><h2>Privacy</h2>
             <p>La diagnostica facoltativa contiene codici evento, versione e conteggi. PDF, testo e CSV restano sul dispositivo.</p>
             <label className="privacy-toggle"><input type="checkbox" checked={status.diagnostics} disabled={!!busy}
               onChange={event => {const diagnostics = event.target.checked; run("Aggiornamento privacy", async () => {

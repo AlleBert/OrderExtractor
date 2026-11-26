@@ -1,4 +1,7 @@
-#ifdef LocalPreview
+#ifdef LocalBeta
+  #define ProductId "OrderExtractorBeta"
+  #define ProductName "Order Extractor Beta"
+#elif defined(LocalPreview)
   #define ProductId "OrderExtractorPreview"
   #define ProductName "Order Extractor Preview"
 #else
@@ -16,7 +19,11 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist\installer
+#ifdef LocalBeta
+OutputBaseFilename=OrderExtractor-{#ReleaseVersion}-beta-x64
+#else
 OutputBaseFilename=OrderExtractor-{#ReleaseVersion}-x64
+#endif
 SetupIconFile=order-extractor.ico
 Compression=lzma2
 SolidCompression=yes

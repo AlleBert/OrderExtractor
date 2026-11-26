@@ -3,6 +3,7 @@ param(
     [string]$LeasePublicKey,
     [Parameter(Mandatory=$true)][string]$TesseractDirectory,
     [switch]$LocalPreview,
+    [switch]$LocalBeta,
     [string]$GitHubCliDirectory,
     [ValidateSet("eng", "ita", "eng+ita", "ita+eng")][string]$OcrLanguages = "eng",
     [string]$UpdateTrustedRoot,
@@ -13,6 +14,9 @@ param(
 )
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
+if ($LocalBeta -and ($LocalPreview -or $UpdateTrustedRoot -or $GitHubCliDirectory)) {
+    throw "La beta usa un’installazione e un canale di download separati"
+}
 if ($LocalPreview) {
     if ($ControlUrl -or $LeasePublicKey -or $UpdateTrustedRoot) {
         throw "L’anteprima locale usa un servizio licenze temporaneo sul dispositivo"
@@ -67,6 +71,11 @@ if ($LocalPreview) {
     Set-Content -LiteralPath $marker -Value "preview" -Encoding ascii
     $launcherData += @("--add-data", "$marker;.")
 }
+if ($LocalBeta) {
+    $marker = Join-Path $stage "order-extractor-beta"
+    Set-Content -LiteralPath $marker -Value "beta" -Encoding ascii
+    $launcherData += @("--add-data", "$marker;.")
+}
 $modeData = if ($LocalPreview) {
     @("--add-data", "order_extractor/sample.pdf;order_extractor")
 } else {
@@ -79,8 +88,13 @@ if ($UpdateTrustedRoot) {
     Copy-Item $UpdateTrustedRoot $updateRoot -Force
     $modeData += @("--add-data", "$updateRoot;order_extractor")
 }
-@{local_preview = [bool]$LocalPreview; github_updates = [bool]$GitHubCliDirectory; control_url = $ControlUrl; enable_updates = [bool]$UpdateTrustedRoot; publisher_thumbprint = $PublisherThumbprint; ocr_languages = $OcrLanguages} | ConvertTo-Json | Set-Content -Path $config -Encoding utf8
-uv sync --locked --group windows
+@{local_preview = [bool]$LocalPreview; local_ai = [bool]$LocalBeta; github_updates = [bool]$GitHubCliDirectory; control_url = $ControlUrl; enable_updates = [bool]$UpdateTrustedRoot; publisher_thumbprint = $PublisherThumbprint; ocr_languages = $OcrLanguages} | ConvertTo-Json | Set-Content -Path $config -Encoding utf8
+$groups = @("--group", "windows")
+if ($LocalBeta) {
+    $groups += @("--group", "beta-ocr")
+    $modeData += @("--collect-all", "rapidocr_onnxruntime", "--collect-all", "onnxruntime")
+}
+uv sync --locked @groups
 if ($LASTEXITCODE) { throw "Installazione dipendenze Python non riuscita" }
 $workerProbe = Join-Path $stage "worker-probe.pdf"
 uv run --locked python -c "import sys; from pathlib import Path; from scripts.fixtures import build; build(Path(sys.argv[1]), scan=True)" $workerProbe
@@ -92,9 +106,9 @@ try {
     npm run build
     if ($LASTEXITCODE) { throw "Build frontend non riuscita" }
 } finally { Pop-Location }
-uv run --locked --group windows pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --icon installer/order-extractor.ico --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$ocr;order_extractor/ocr" --add-data "$workerProbe;order_extractor" @modeData installer/desktop.py
+uv run --locked @groups pyinstaller --noconfirm --clean --onedir --windowed --name OrderExtractor --icon installer/order-extractor.ico --paths . --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-all webview --collect-data pdfminer --add-data "order_extractor/web;order_extractor/web" --add-data "$config;order_extractor" --add-data "$ocr;order_extractor/ocr" --add-data "$workerProbe;order_extractor" @modeData installer/desktop.py
 if ($LASTEXITCODE) { throw "Packaging PyInstaller non riuscito" }
-uv run --locked --group windows pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --icon installer/order-extractor.ico --paths . @launcherData installer/supervisor.py
+uv run --locked @groups pyinstaller --noconfirm --onedir --windowed --name OrderExtractorLauncher --icon installer/order-extractor.ico --paths . @launcherData installer/supervisor.py
 if ($LASTEXITCODE) { throw "Build launcher non riuscita" }
 Sign-ReleaseFile "dist\OrderExtractor\OrderExtractor.exe"
 Sign-ReleaseFile "dist\OrderExtractorLauncher\OrderExtractorLauncher.exe"
@@ -102,11 +116,14 @@ $version = (uv run --locked python -c "from order_extractor import VERSION; impo
 if ($LASTEXITCODE -or !$version) { throw "Versione progetto non valida" }
 $installerDefines = @("/DReleaseVersion=$version")
 if ($LocalPreview) { $installerDefines += "/DLocalPreview=1" }
+if ($LocalBeta) { $installerDefines += "/DLocalBeta=1" }
 & $InnoCompiler @installerDefines "installer\order-extractor.iss"
 if ($LASTEXITCODE) { throw "Compilazione Inno Setup non riuscita" }
-$installer = "dist\installer\OrderExtractor-$version-x64.exe"
+$suffix = if ($LocalBeta) { "-beta" } else { "" }
+$installerName = "OrderExtractor-$version$suffix-x64.exe"
+$installer = "dist\installer\$installerName"
 Sign-ReleaseFile $installer
 $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  OrderExtractor-$version-x64.exe" | Set-Content "dist\installer\SHA256SUMS.txt" -Encoding ascii
+"$hash  $installerName" | Set-Content "dist\installer\SHA256SUMS.txt" -Encoding ascii
 uv run --locked python -m scripts.package_desktop "dist\OrderExtractor" "dist\desktop-$version.zip"
 if ($LASTEXITCODE) { throw "Creazione pacchetto aggiornamento non riuscita" }

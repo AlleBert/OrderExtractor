@@ -133,7 +133,8 @@ def apply_pending(store, *, fetch=download_update, health=None):
 def main():
     home = Path(sys.executable).resolve().parent
     preview = (home / "_internal" / "order-extractor-preview").is_file()
-    product = "OrderExtractorPreview" if preview else "OrderExtractor"
+    beta = (home / "_internal" / "order-extractor-beta").is_file()
+    product = "OrderExtractorPreview" if preview else "OrderExtractorBeta" if beta else "OrderExtractor"
     data = Path(user_data_dir(product, appauthor=False))
     store = VersionStore(home, data, data_subdir="demo" if preview else None)
     try:
@@ -147,7 +148,7 @@ def main():
                 current = store.current()
                 if release_key(VERSION) > release_key(current) and store.executable(VERSION).is_file():
                     _, config = installed_config(store, VERSION)
-                    if config.get("local_preview") or config.get("github_updates"):
+                    if config.get("local_preview") or config.get("github_updates") or beta and config.get("local_ai"):
                         durable_json(store.pointer, {"version": VERSION})
                         current = VERSION
                 executable = store.executable(current)

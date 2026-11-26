@@ -37,7 +37,7 @@ class Result(BaseModel):
     page_count: int = Field(ge=1, le=100, strict=True)
     rows: list[Row] = Field(max_length=MAX_ROWS)
     notices: list[Annotated[str, Field(max_length=300)]] = Field(max_length=300)
-    engines: list[Literal["testo PDF", "OCR Tesseract"]] = Field(max_length=100)
+    engines: list[Literal["testo PDF", "OCR Tesseract", "OCR RapidOCR"]] = Field(max_length=100)
     layout_key: str | None = Field(default=None, pattern=r"^v1:[0-9a-f]{64}$")
     mappable_pages: list[Annotated[int, Field(ge=0, lt=100, strict=True)]] = Field(default_factory=list, max_length=100)
     header_anchors: list[HeaderAnchor] = Field(default_factory=list, max_length=100 * MAX_HEADER_ANCHORS)

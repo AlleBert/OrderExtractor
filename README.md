@@ -8,6 +8,22 @@ Apri [GitHub Releases](https://github.com/AlleBert/OrderExtractor/releases/lates
 
 In **Impostazioni → Aggiornamenti** puoi cercare le nuove versioni stabili. L’app verifica l’attestazione GitHub del pacchetto e prova la nuova versione prima di attivarla.
 
+## Order Extractor 1.0.1 Beta
+
+La beta si installa come **Order Extractor Beta**, con i propri dati locali. Usa il server licenze di Order Extractor e richiede l’attivazione come postazione distinta dalla stabile.
+
+1. [Installa Ollama per Windows](https://ollama.com/download/windows), avvialo e scarica il modello una volta da PowerShell.
+
+   ```powershell
+   ollama pull qwen2.5:3b
+   ```
+
+2. In Order Extractor Beta apri **Impostazioni → AI locale → Verifica Ollama**.
+3. Apri un ordine, seleziona una pagina e premi **Riprova con AI locale**. Se la pagina ha già delle righe, il pulsante chiede conferma prima di sostituirle. Verifica le proposte confrontandole con il PDF.
+4. Usa **Scarica proposta JSON** per ottenere la proposta della pagina. Il file riporta il numero di pagina, i decimali normalizzati e gli avvisi per valori mancanti o ambigui. Per esportare eventuali correzioni dalla griglia usa il normale CSV.
+
+La beta legge il testo nativo e usa RapidOCR per le scansioni, con Tesseract come riserva. Invia testo e coordinate solo a Ollama sullo stesso PC. Dopo aver scaricato Ollama e il modello e attivato la licenza, puoi collaudare l’estrazione scollegando Internet. La beta si aggiorna scaricando il suo installer.
+
 ## Prova l’app dai sorgenti
 
 Servono Python 3.12, uv, un browser, libseccomp su Linux e Tesseract con il modello inglese `eng`. Per usare anche il modello italiano installa `ita` e imposta `OE_OCR_LANGS=ita+eng`. L’app non scarica modelli. Da terminale nella radice del progetto:

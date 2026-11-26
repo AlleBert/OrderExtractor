@@ -2,7 +2,7 @@ name: Test and release
 on:
   push:
     branches: ['**']
-    tags: ['v*-preview', 'v[0-9]+.[0-9]+.[0-9]+']
+    tags: ['v*-preview', 'v*-beta', 'v[0-9]+.[0-9]+.[0-9]+']
   pull_request:
 permissions:
   contents: read
@@ -70,11 +70,15 @@ jobs:
           $version = python -c "from order_extractor import VERSION; import tomllib; assert VERSION == tomllib.load(open('pyproject.toml','rb'))['project']['version']; print(VERSION)"
           if ($LASTEXITCODE -or $version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid version' }
           $stable = $env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ceq "v$version"
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and !$stable -and $env:GITHUB_REF_NAME -cne "v${version}-preview") {
+          $beta = $env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ceq "v${version}-beta"
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and !$stable -and !$beta -and $env:GITHUB_REF_NAME -cne "v${version}-preview") {
             throw 'The tag must match the package version'
           }
           "OE_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
           "OE_STABLE_BUILD=$($stable.ToString().ToLowerInvariant())" >> $env:GITHUB_ENV
+          "OE_BETA_BUILD=$($beta.ToString().ToLowerInvariant())" >> $env:GITHUB_ENV
+          $suffix = if ($beta) { "-beta" } else { "" }
+          "OE_INSTALLER_NAME=OrderExtractor-$version$suffix-x64.exe" >> $env:GITHUB_ENV
       - name: Install Windows build dependencies
         run: ./installer/ci-dependencies.ps1 -ToolDirectory (Join-Path $env:RUNNER_TEMP 'order-extractor-tools')
       - name: Build installer
@@ -84,7 +88,11 @@ jobs:
             TesseractDirectory = $env:OE_CI_TESSERACT
             InnoCompiler = $env:OE_CI_INNO
           }
-          if ($env:OE_STABLE_BUILD -eq 'true') {
+          if ($env:OE_BETA_BUILD -eq 'true') {
+            $arguments.LocalBeta = $true
+            $arguments.Remove('GitHubCliDirectory')
+          }
+          if ($env:OE_STABLE_BUILD -eq 'true' -or $env:OE_BETA_BUILD -eq 'true') {
             $arguments.ControlUrl = 'https://alleserver.taila8fb79.ts.net:10000'
             $arguments.LeasePublicKey = 'installer/lease-public.pem'
           } else {
@@ -94,24 +102,30 @@ jobs:
       - name: Install and verify packaged application
         run: |
           $version = $env:OE_RELEASE_VERSION
-          $installer = Resolve-Path "dist/installer/OrderExtractor-$version-x64.exe"
+          $installer = Resolve-Path "dist/installer/$env:OE_INSTALLER_NAME"
           $log = Join-Path (Get-Location) 'dist/installer/install.log'
           $setup = Start-Process -FilePath $installer.Path -ArgumentList @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`""
           ) -Wait -PassThru
           if ($setup.ExitCode -ne 0) { Get-Content $log; throw "Installer exit $($setup.ExitCode)" }
-          $product = if ($env:OE_STABLE_BUILD -eq 'true') { 'Order Extractor' } else { 'Order Extractor Preview' }
+          $product = if ($env:OE_BETA_BUILD -eq 'true') { 'Order Extractor Beta' }
+                     elseif ($env:OE_STABLE_BUILD -eq 'true') { 'Order Extractor' }
+                     else { 'Order Extractor Preview' }
           $homeDirectory = Join-Path $env:LOCALAPPDATA "Programs/$product"
           $client = Join-Path $homeDirectory "versions/$version/OrderExtractor.exe"
-          $marker = Test-Path (Join-Path $homeDirectory '_internal/order-extractor-preview')
-          if ($marker -eq ($env:OE_STABLE_BUILD -eq 'true')) { throw 'Wrong installer channel' }
-          $verifier = Join-Path $homeDirectory '_internal/github-cli/gh.exe'
-          & $verifier --version
-          if ($LASTEXITCODE) { throw 'Missing attestation verifier' }
+          if ($env:OE_BETA_BUILD -eq 'true') {
+            if (!(Test-Path (Join-Path $homeDirectory '_internal/order-extractor-beta'))) { throw 'Wrong beta installer' }
+          } else {
+            $marker = Test-Path (Join-Path $homeDirectory '_internal/order-extractor-preview')
+            if ($marker -eq ($env:OE_STABLE_BUILD -eq 'true')) { throw 'Wrong installer channel' }
+            $verifier = Join-Path $homeDirectory '_internal/github-cli/gh.exe'
+            & $verifier --version
+            if ($LASTEXITCODE) { throw 'Missing attestation verifier' }
+          }
           ./installer/verify.ps1 -ReleaseVersion $version -ClientPath $client -InstallerPath $installer.Path `
             -ReportPath 'dist/installer/verification.json'
       - name: Check public licensing paths from Windows
-        if: env.OE_STABLE_BUILD == 'true'
+        if: env.OE_STABLE_BUILD == 'true' || env.OE_BETA_BUILD == 'true'
         continue-on-error: true
         run: |
           $base = 'https://alleserver.taila8fb79.ts.net:10000'
@@ -134,7 +148,7 @@ jobs:
         id: provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
-          subject-path: dist/installer/OrderExtractor-${{ env.OE_RELEASE_VERSION }}-x64.exe
+          subject-path: dist/installer/${{ env.OE_INSTALLER_NAME }}
       - name: Include the provenance bundle
         if: github.ref_type == 'tag'
         env:
@@ -190,7 +204,10 @@ jobs:
           set -euo pipefail
           version="${TAG#v}"
           version="${version%-preview}"
-          installer="release-assets/OrderExtractor-$version-x64.exe"
+          version="${version%-beta}"
+          suffix=
+          if [[ "$TAG" == *-beta ]]; then suffix=-beta; fi
+          installer="release-assets/OrderExtractor-$version$suffix-x64.exe"
           desktop="release-assets/desktop-$version-x64.zip"
           (cd release-assets && sha256sum -c SHA256SUMS.txt)
           gh attestation verify "$installer" --bundle release-assets/provenance.sigstore.jsonl \
@@ -199,6 +216,17 @@ jobs:
           gh attestation verify "$desktop" --bundle release-assets/desktop-provenance.sigstore.jsonl \
             --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/tests.yml" \
             --source-ref "$GITHUB_REF" --deny-self-hosted-runners
+          if [[ "$TAG" == *-beta ]]; then
+            notes='Beta Windows x64 con AI locale su richiesta e RapidOCR per le scansioni. Richiede una licenza Order Extractor e Ollama con qwen2.5:3b installati separatamente. Installazione separata. Installer senza firma Authenticode, con SHA-256 e attestazione GitHub.'
+            if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then
+              [[ "$draft" == true ]] || { echo 'Beta già pubblicata'; exit 1; }
+              gh release upload "$TAG" release-assets/* --clobber
+            else
+              gh release create "$TAG" release-assets/* --verify-tag --draft --prerelease --latest=false \
+                --title "Order Extractor $version Beta" --notes "$notes"
+            fi
+            exit
+          fi
           if [[ "$TAG" != *-preview ]]; then
             notes='Release stabile per Windows 11 x64. Richiede Microsoft Edge WebView2 e un seriale emesso dal gestore. I PDF vengono elaborati sul dispositivo. L’installer è senza firma Authenticode. SHA256SUMS.txt e gli attestati GitHub Actions permettono di verificare il download.'
             if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then

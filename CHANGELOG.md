@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 Beta
+
+- Rilettura su richiesta di una pagina tramite Ollama locale con `qwen2.5:3b`.
+- Proposta JSON versionata con celle di origine verificate e decimali normalizzati.
+- RapidOCR su CPU per le scansioni, con Tesseract come riserva.
+- Installer beta separato con attivazione sul server licenze esistente.
+
 ## 1.0.0
 
 - Prima build stabile di Order Extractor per Windows 11 x64, con attivazione tramite seriale.

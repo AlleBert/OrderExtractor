@@ -47,14 +47,16 @@ def run_pdf_worker(arguments):
         # The parent resolves the working directory before granting the container access.
         # Re-resolving a Win32 path here can require inspecting protected parent folders.
         directory = Path.cwd()
-        worker(directory / "source.pdf", directory)
+        config_path = Path(__file__).parent / "desktop-config.json"
+        config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+        worker(directory / "source.pdf", directory, rapid_ocr=config.get("local_ai", False))
     except OSError as error:
         if arguments[1:] == ["--trace-probe"]:
             raise
         raise SystemExit(1) from error
 
 
-def check_packaged_worker():
+def check_packaged_worker(*, rapid_ocr=False):
     from .windows_appcontainer import AppContainerProcess
     from .worker_protocol import MAX_RESULT, Result, read_artifact, result_protocol
 
@@ -71,8 +73,16 @@ def check_packaged_worker():
                 raise RuntimeError("Tempo massimo di verifica del worker PDF superato.")
             process.finish()
             result = result_protocol.validate_json(read_artifact(work / "result.json", MAX_RESULT))
-            if (not isinstance(result, Result) or result.engines != ["OCR Tesseract"]
-                    or [row.article for row in result.rows] != ["00042", "ART003", "A-0009"]):
+            if not isinstance(result, Result):
+                raise RuntimeError("Il worker PDF del pacchetto non supera la prova sintetica.")
+            if rapid_ocr:
+                from .local_ai import read_ai_page
+
+                page = read_ai_page(work, 0)
+                recognized = " ".join(word.text for line in page.lines for word in line)
+                if page.engine != "OCR RapidOCR" or "ART003" not in recognized.replace(" ", ""):
+                    raise RuntimeError("Il worker non ha letto il PDF sintetico con RapidOCR.")
+            elif result.engines != ["OCR Tesseract"] or [row.article for row in result.rows] != ["00042", "ART003", "A-0009"]:
                 raise RuntimeError("Il worker PDF del pacchetto non supera la prova sintetica.")
         finally:
             process.stop()
@@ -175,7 +185,8 @@ def main():
         os.environ["OE_TESSERACT"] = str(runtime / "tesseract.exe")
         os.environ["TESSDATA_PREFIX"] = str(runtime / "tessdata")
         os.environ["OE_OCR_LANGS"] = config.get("ocr_languages", "eng")
-    product = "OrderExtractorPreview" if local_preview else "OrderExtractor"
+    local_ai = config.get("local_ai", False) if packaged else os.environ.get("OE_LOCAL_AI") == "1"
+    product = "OrderExtractorPreview" if local_preview else "OrderExtractorBeta" if local_ai else "OrderExtractor"
     base = args.data_dir or Path(user_data_dir(product, appauthor=False))
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
     handles = []
@@ -270,7 +281,8 @@ def main():
         ticket = secrets.token_urlsafe(36)
         origin, server, thread = serve(
             lambda origin: create_local(base, origin, ticket, licensing, sample, updates, installation,
-                                        background=not args.probe_version, startup_ready=startup_ready, github_updates=github_updates), port=args.port
+                                        background=not args.probe_version, startup_ready=startup_ready, github_updates=github_updates,
+                                        local_ai=local_ai, rapid_ocr=local_ai), port=args.port
         )
         handles.append((server, thread))
         url = f"{origin}/open?ticket={ticket}"
@@ -288,7 +300,7 @@ def main():
                 if db.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
                     raise RuntimeError("Controllo SQLite non riuscito.")
             print("Verifica worker AppContainer", flush=True)
-            check_packaged_worker()
+            check_packaged_worker(rapid_ocr=local_ai)
             print("Verifica WebView2", flush=True)
             check_webview(url, startup_ready, base / "webview-probe")
             return

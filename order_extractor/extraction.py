@@ -53,6 +53,20 @@ def without_rules(image):
     return ImageChops.lighter(gray, rules)
 
 
+def rapid_words(image, engine):
+    buffered = io.BytesIO()
+    image.save(buffered, "PNG")
+    detected, _ = engine(buffered.getvalue())
+    width, height = image.size
+    words = []
+    for points, text, _ in detected or []:
+        if text.strip():
+            xs, ys = zip(*points)
+            words.append(Word(text.strip(), max(0, min(xs)) / width, max(0, min(ys)) / height,
+                              min(width, max(xs)) / width, min(height, max(ys)) / height))
+    return words
+
+
 def ocr_words(image, directory, mode=6, *, timeout=15):
     executable = os.environ.get("OE_TESSERACT", "tesseract")
     languages = os.environ.get("OE_OCR_LANGS", "eng")
@@ -135,13 +149,14 @@ def compare_ocr(rows, alternate):
                     row["source_spans"].extend(other["source_spans"][:1])
 
 
-def extract(path: Path, directory: Path, progress):
+def extract(path: Path, directory: Path, progress, *, rapid_ocr=False):
     rows, notices, engines = [], [], []
     layouts = set()
     mappable_pages = []
     anchors = []
     cache_budget = MAX_DOCUMENT_CACHE
     columns = []
+    rapid_engine = None
     try:
         document = pdfium.PdfDocument(path)
     except pdfium.PdfiumError as error:
@@ -165,7 +180,22 @@ def extract(path: Path, directory: Path, progress):
                 native_numbers = sum(any(char.isdigit() for char in word.text) for word in words)
                 engine = "testo PDF"
                 alternatives = []
-                if not plausible or not (has_header or columns and native_numbers >= 2):
+                if rapid_ocr and not plausible:
+                    try:
+                        if rapid_engine is None:
+                            from rapidocr_onnxruntime import RapidOCR
+
+                            rapid_engine = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1)
+                        rapid = rapid_words(raster(page, 200), rapid_engine)
+                    except Exception:
+                        rapid = []
+                        rapid_ocr = False
+                        notices.append("RapidOCR non disponibile. Verrà usato Tesseract.")
+                    if rapid:
+                        lines = lines_for(rapid)
+                        engine = "OCR RapidOCR"
+                        notices.append(f"Pagina {index + 1}: verifica nel PDF codici e valori letti con OCR.")
+                if engine != "OCR RapidOCR" and (not plausible or not (has_header or columns and native_numbers >= 2)):
                     candidates = ocr_candidates(raster(page, 260), directory, index, columns)
                     if candidates and candidates[0][0] and (candidates[0][1] or not plausible):
                         lines = candidates[0][0]

@@ -60,7 +60,7 @@ class CachedWord(BaseModel):
 
 class CachedText(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    engine: Literal["testo PDF", "OCR Tesseract"]
+    engine: Literal["testo PDF", "OCR Tesseract", "OCR RapidOCR"]
     lines: list[list[CachedWord]] = Field(max_length=MAX_WORDS)
 
 
