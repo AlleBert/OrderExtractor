@@ -2,6 +2,10 @@
 
 La console amministrativa usa Tailscale Serve su HTTPS. La porta della console e quella dell’API ascoltano sul loopback del server Linux. PostgreSQL resta sulla rete dei container.
 
+## Se il server ospita già altri servizi Tailscale
+
+Mantieni le configurazioni Serve o Funnel presenti. I comandi qui sotto usano la porta HTTPS 443 per la console e 8443 per i client soltanto come esempi. Su un nodo che occupa già entrambe, una combinazione possibile è Serve su 10443 per la console e su 10444 per [Keycloak](keycloak-tailnet.md), con Funnel su 10000 per l’API dei client esterni. Controlla le porte con `tailscale serve status`, `tailscale funnel status` e `ss` prima di aggiungere listener. Punta Funnel al solo proxy filtrato `http://127.0.0.1:18101`.
+
 ## Accesso riservato e MFA
 
 1. Predisponi Docker Engine 28 o successivo, Docker Compose 2.24.4 o successivo e Tailscale sul server. Abilita MagicDNS e i certificati HTTPS nel tailnet. Tieni aggiornati i dispositivi con accesso amministrativo.

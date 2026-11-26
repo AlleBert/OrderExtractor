@@ -1,0 +1,56 @@
+name: order-extractor-identity
+
+services:
+  identity-db:
+    image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_DB: keycloak
+      POSTGRES_PASSWORD: ${OE_IDENTITY_DB_PASSWORD:?Imposta la password PostgreSQL di Keycloak}
+    volumes:
+      - identity-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "keycloak", "-d", "keycloak"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+    restart: unless-stopped
+  identity:
+    image: quay.io/keycloak/keycloak:26.8.2@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
+    command: ["start"]
+    environment:
+      KC_HOSTNAME: ${OE_IDENTITY_URL:?Imposta l'URL HTTPS privato di Keycloak}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://identity-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${OE_IDENTITY_DB_PASSWORD:?Imposta la password PostgreSQL di Keycloak}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${OE_IDENTITY_BOOTSTRAP_USER:-}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${OE_IDENTITY_BOOTSTRAP_PASSWORD:-}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18102:8080"
+    depends_on:
+      identity-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - /bin/bash
+        - -ec
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/9000
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          read -r status <&3
+          [[ "$$status" == *" 200 "* ]]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  identity-data:

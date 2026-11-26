@@ -12,3 +12,5 @@ node_modules/
 .uv-cache/
 .demo-data/
 .demo-venv/
+
+.env.identity
