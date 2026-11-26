@@ -52,6 +52,10 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')
     runs-on: windows-2025
     timeout-minutes: 35
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -85,6 +89,17 @@ jobs:
           $client = Join-Path $env:LOCALAPPDATA "Programs/Order Extractor Preview/versions/$version/OrderExtractor.exe"
           ./installer/verify.ps1 -ReleaseVersion $version -ClientPath $client -InstallerPath $installer.Path `
             -ReportPath 'dist/installer/verification.json'
+      - name: Attest the tested installer
+        if: github.ref_type == 'tag'
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: dist/installer/OrderExtractor-${{ env.OE_RELEASE_VERSION }}-x64.exe
+      - name: Include the provenance bundle
+        if: github.ref_type == 'tag'
+        env:
+          OE_PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: Copy-Item -LiteralPath $env:OE_PROVENANCE_BUNDLE -Destination dist/installer/provenance.sigstore.jsonl
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: OrderExtractor-Windows-x64
@@ -93,6 +108,7 @@ jobs:
             dist/installer/OrderExtractor-*-x64.exe
             dist/installer/SHA256SUMS.txt
             dist/installer/verification.json
+            dist/installer/provenance.sigstore.jsonl
   publish-preview:
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [linux, windows-worker, windows-installer]
@@ -111,8 +127,13 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          installer="release-assets/OrderExtractor-${TAG#v}"
+          installer="${installer%-preview}-x64.exe"
           (cd release-assets && sha256sum -c SHA256SUMS.txt)
-          notes='Anteprima locale per Windows 11 x64. Scarica OrderExtractor-*-x64.exe. L’installer è senza firma Authenticode. L’app elabora i PDF sul dispositivo e attiva automaticamente una licenza demo locale. Richiede Microsoft Edge WebView2.'
+          gh attestation verify "$installer" --bundle release-assets/provenance.sigstore.jsonl \
+            --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/tests.yml" \
+            --source-ref "$GITHUB_REF" --deny-self-hosted-runners
+          notes='Anteprima locale per Windows 11 x64. Scarica OrderExtractor-*-x64.exe. L’installer è senza firma Authenticode. L’app elabora i PDF sul dispositivo e attiva automaticamente una licenza demo locale. Richiede Microsoft Edge WebView2. Gli asset includono SHA256SUMS.txt, il report di collaudo e l’attestazione di provenienza GitHub Actions in provenance.sigstore.jsonl.'
           if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then
             if [[ "$draft" != true ]]; then
               echo 'La release è già pubblicata. I file di una release pubblicata sono immutabili per questo workflow.'

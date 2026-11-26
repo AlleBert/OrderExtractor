@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+L’installer Windows include un’attestazione di provenienza GitHub Actions. La pipeline verifica l’attestazione e lo SHA-256 prima di pubblicare la prerelease.
+
 ## 0.1.0
 
 Prima anteprima Windows distribuita da GitHub Releases. L’installer per utente include Tesseract e attiva la demo in locale.
