@@ -96,7 +96,7 @@ if ($UpdateTrustedRoot) {
 $groups = @("--group", "windows")
 if ($LocalBeta) {
     $groups += @("--group", "beta-ocr")
-    $modeData += @("--collect-all", "rapidocr_onnxruntime", "--collect-all", "onnxruntime", "--collect-all", "pymupdf")
+    $modeData += @("--collect-all", "rapidocr_onnxruntime", "--collect-all", "onnxruntime", "--exclude-module", "pymupdf")
 }
 uv sync --locked @groups
 if ($LASTEXITCODE) { throw "Installazione dipendenze Python non riuscita" }

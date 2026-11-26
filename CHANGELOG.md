@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 Beta
+
+- Estrazione con Ollama locale avviata al caricamento del PDF e avanzamento in app.
+- Configurazione guidata di Ollama e download del modello dalle impostazioni.
+- CSV normalizzato dopo la revisione e comando batch con cartelle di ingresso e uscita.
+- Rendering delle scansioni con PDFium nell’installer e PyMuPDF nel comando batch.
+
 ## 1.0.1 Beta
 
 - Rilettura su richiesta di una pagina tramite Ollama locale con `qwen2.5:3b`.

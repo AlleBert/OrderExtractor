@@ -218,7 +218,7 @@ jobs:
             --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/tests.yml" \
             --source-ref "$GITHUB_REF" --deny-self-hosted-runners
           if [[ "$TAG" == *-beta ]]; then
-            notes='Beta Windows x64 con AI locale su richiesta e RapidOCR per le scansioni. Richiede una licenza Order Extractor e Ollama con qwen2.5:3b installati separatamente. Installazione separata. Installer senza firma Authenticode, con SHA-256 e attestazione GitHub.'
+            notes='Beta Windows x64 con analisi AI automatica, configurazione guidata di Ollama, avanzamento in app e CSV normalizzato. Le scansioni usano PDFium e RapidOCR. Richiede una licenza Order Extractor. Installazione separata. Installer senza firma Authenticode, con SHA-256 e attestazione GitHub.'
             if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then
               [[ "$draft" == true ]] || { echo 'Beta già pubblicata'; exit 1; }
               gh release upload "$TAG" release-assets/* --clobber

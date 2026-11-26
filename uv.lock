@@ -405,7 +405,7 @@ wheels = [
 
 [[package]]
 name = "order-extractor"
-version = "1.0.1"
+version = "1.0.2"
 source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
@@ -427,9 +427,13 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-beta-ocr = [
+batch-pdf = [
     { name = "psutil" },
     { name = "pymupdf" },
+    { name = "rapidocr-onnxruntime" },
+]
+beta-ocr = [
+    { name = "psutil" },
     { name = "rapidocr-onnxruntime" },
 ]
 dev = [
@@ -463,9 +467,13 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-beta-ocr = [
+batch-pdf = [
     { name = "psutil", specifier = "==7.2.2" },
     { name = "pymupdf", specifier = "==1.27.2.3" },
+    { name = "rapidocr-onnxruntime", specifier = "==1.4.4" },
+]
+beta-ocr = [
+    { name = "psutil", specifier = "==7.2.2" },
     { name = "rapidocr-onnxruntime", specifier = "==1.4.4" },
 ]
 dev = [

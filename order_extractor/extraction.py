@@ -53,6 +53,17 @@ def without_rules(image):
     return ImageChops.lighter(gray, rules)
 
 
+def raster_pymupdf(path, index):
+    import pymupdf
+    from PIL import Image
+
+    with pymupdf.open(path) as source:
+        page = source[index]
+        scale = min(200 / 72, (MAX_PIXELS / page.rect.get_area()) ** .5 * .995)
+        pixmap = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+        return Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+
+
 def rapid_words(image, engine):
     buffered = io.BytesIO()
     image.save(buffered, "PNG")
@@ -149,7 +160,7 @@ def compare_ocr(rows, alternate):
                     row["source_spans"].extend(other["source_spans"][:1])
 
 
-def extract(path: Path, directory: Path, progress, *, rapid_ocr=False, text_only=False):
+def extract(path: Path, directory: Path, progress, *, rapid_ocr=False, text_only=False, use_pymupdf=False):
     rows, notices, engines = [], [], []
     layouts = set()
     mappable_pages = []
@@ -180,19 +191,12 @@ def extract(path: Path, directory: Path, progress, *, rapid_ocr=False, text_only
                     readable = bool(words) and sum("�" in word.text or "(cid:" in word.text for word in words) * 8 < len(words)
                     engine = "testo PDF"
                     if not readable:
-                        import pymupdf
                         from rapidocr_onnxruntime import RapidOCR
 
                         if rapid_engine is None:
                             rapid_engine = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1)
-                        with pymupdf.open(path) as source:
-                            source_page = source[index]
-                            scale = min(200 / 72, (MAX_PIXELS / source_page.rect.get_area()) ** .5 * .995)
-                            pixmap = source_page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
-                            from PIL import Image
-
-                            image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
-                            words = rapid_words(image, rapid_engine)
+                        image = raster_pymupdf(path, index) if use_pymupdf else raster(page, 200)
+                        words = rapid_words(image, rapid_engine)
                         engine = "OCR RapidOCR"
                     cached = cache_page(directory, index, lines_for(words), cache_budget, engine)
                     if cached:

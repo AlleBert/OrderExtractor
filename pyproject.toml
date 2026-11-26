@@ -1,6 +1,6 @@
 [project]
 name = "order-extractor"
-version = "1.0.1"
+version = "1.0.2"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.141.1", "uvicorn==0.52.1", "python-multipart==0.0.32",
@@ -12,7 +12,8 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest==9.0.2", "reportlab==4.4.9", "playwright==1.62.0", "ruff==0.15.0"]
-beta-ocr = ["rapidocr-onnxruntime==1.4.4", "pymupdf==1.27.2.3", "psutil==7.2.2"]
+beta-ocr = ["rapidocr-onnxruntime==1.4.4", "psutil==7.2.2"]
+batch-pdf = [{include-group = "beta-ocr"}, "pymupdf==1.27.2.3"]
 windows = ["pyinstaller==6.19.0; sys_platform == 'win32'"]
 
 [tool.ruff.lint]

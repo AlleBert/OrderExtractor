@@ -36,7 +36,7 @@ def run(root, number_style, *, init=False):
                 pdf = work / "source.pdf"
                 shutil.copyfile(path, pdf)
                 metadata = extract(pdf, work, lambda index, count: print(
-                    f"{path.name} · lettura {min(index + 1, count)}/{count}", file=sys.stderr), text_only=True)
+                    f"{path.name} · lettura {min(index + 1, count)}/{count}", file=sys.stderr), text_only=True, use_pymupdf=True)
 
                 def progress(index, count, part, parts, chars):
                     if chars == 0:
