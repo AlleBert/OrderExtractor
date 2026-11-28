@@ -62,15 +62,16 @@ class CachedText(BaseModel):
     model_config = ConfigDict(extra="forbid")
     engine: Literal["testo PDF", "OCR Tesseract", "OCR RapidOCR"]
     lines: list[list[CachedWord]] = Field(max_length=MAX_WORDS)
+    rules: list[tuple[Coordinate, Coordinate, Coordinate]] = Field(default_factory=list, max_length=1024)
 
 
-def cache_page(directory, index, lines, remaining, engine):
+def cache_page(directory, index, lines, remaining, engine, *, rules=()):
     count = sum(len(line) for line in lines)
     if not 0 < count <= MAX_WORDS or remaining <= 0:
         return 0
     if sum(len(word.text) for line in lines for word in line) > 350_000:
         return 0
-    encoded = {"engine": engine, "lines": [[{"text": word.text[:500], **{
+    encoded = {"engine": engine, "rules": rules, "lines": [[{"text": word.text[:500], **{
         key: round(max(0, min(1, getattr(word, key))), 5) for key in ("x0", "y0", "x1", "y1")
     }} for word in line] for line in lines if line]}
     payload = json.dumps(encoded, ensure_ascii=False, separators=(",", ":")).encode()

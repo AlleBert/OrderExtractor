@@ -104,3 +104,5 @@ dialog p{margin:10px 0 18px}
 .admin-main{max-width:1000px}.admin-main [hidden]{display:none}.admin-main section{margin:15px 0;overflow:auto}.admin-main form{display:flex;flex-wrap:wrap;align-items:end;gap:10px}.admin-main form input,.admin-main form select{min-width:125px}.admin-main .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.admin-main pre{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:1160px){.shell{grid-template-columns:164px minmax(0,1fr)}.review{grid-template-columns:minmax(0,1fr)}.preview-space{max-height:48vh}.paper{max-width:430px}}
 @media(max-width:660px){.shell{grid-template-columns:minmax(0,1fr)}.sidebar{position:static;height:auto;padding:12px}.brand{padding:0 0 9px}.brand br{display:none}.brand strong{word-spacing:.14em}.sidebar nav{display:flex}.sidebar nav button{padding:8px}.sidebar-foot{display:none}.topbar{height:50px}main{padding-top:23px}.setting-grid{grid-template-columns:1fr}.steps li{min-width:80px}.sample-row{align-items:start}.dropzone{padding:34px 12px}}
+
+.diagnostics-output{max-height:26rem;overflow:auto;overflow-wrap:anywhere;white-space:pre-wrap}

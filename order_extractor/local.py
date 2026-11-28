@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
@@ -37,6 +37,7 @@ from .manual import (
     replace_page,
 )
 from .supervisor import OUTCOME, REQUEST
+from .table_mapping import numeric
 from .updates import RELEASE
 from .version_store import durable_json
 from .worker_limits import WorkerProcess
@@ -200,7 +201,7 @@ class AISelection(BaseModel):
 
 
 class Job:
-    def __init__(self, path, token, document_hash, duplicate, temp, rapid_ocr=False, local_ai=False):
+    def __init__(self, path, token, document_hash, duplicate, temp, rapid_ocr=False, local_ai=False, diagnostics=False):
         self.token = token
         self.document_hash = document_hash
         self.duplicate = duplicate
@@ -220,6 +221,8 @@ class Job:
         self.ai_future = None
         self.cancel_ai = threading.Event()
         self.ai_progress = None
+        self.trace = {} if diagnostics else None
+        self.unresolved_pages = {}
         if os.name == "nt" and getattr(sys, "frozen", False):
             from .windows_appcontainer import AppContainerProcess
 
@@ -268,18 +271,22 @@ class Job:
         self.result = payload.model_dump(exclude={"rows", "header_anchors"})
         if self.local_ai:
             self.ai_future = Future()
-            self.ai_progress = {"phase": "ollama", "checked": 0, "total": payload.page_count, "chars": 0,
-                                "part": 0, "parts": 0}
+            self.ai_progress = {"phase": "layout", "checked": 0, "total": payload.page_count, "chars": 0}
 
-            def report(page, total, part, parts, chars):
-                self.ai_progress = {"phase": "ollama", "checked": page, "total": total,
-                                    "part": part, "parts": parts, "chars": chars}
+            def progress(page, total, phase, chars):
+                self.ai_progress = {"phase": phase, "checked": page, "total": total, "chars": chars}
+
+            def report(entry):
+                if self.trace is not None:
+                    self.trace[entry["page"]] = entry
 
             def analyze():
                 if self.ai_future.set_running_or_notify_cancel():
                     try:
-                        rows = infer_document(self.directory, self.result, self.data.number_style, report,
-                                              cancel=self.cancel_ai.is_set)
+                        rows = infer_document(
+                            self.directory, self.result, "auto", progress, cancel=self.cancel_ai.is_set,
+                            report=report, unresolved=self.unresolved_pages.__setitem__,
+                        )
                     except Exception as error:
                         self.ai_future.set_exception(error)
                     else:
@@ -292,7 +299,9 @@ class Job:
     def finish_review(self, rows, store):
         self.status = "needs_review"
         self.ai_progress = None
-        self.data = Revision(revision=0, rows=rows)
+        currencies = {row.currency for row in rows if row.currency}
+        self.data = Revision(revision=0, rows=rows, number_style="en" if self.local_ai else "auto",
+                             currency=next(iter(currencies)) if self.local_ai and len(currencies) == 1 else "")
         store.query(
             "INSERT INTO history VALUES (?, ?, datetime('now'), ?, ?, ?)",
             (self.token, self.document_hash, self.result["page_count"], len(self.data.rows), self.status),
@@ -343,6 +352,9 @@ class Job:
                     layout_profile=store.profile_for_layout(layout),
                     can_learn_layout=self.status == "exported" and bool(layout or self.confirmed_manual_rules()),
                     mapping_suggestions=self.mapping_suggestions(store),
+                    diagnostics=self.trace is not None,
+                    unresolved=[{"page": page, "reason": reason} for page, reason in self.unresolved_pages.items()]
+                    if self.status != "running" else [],
                     issues=validate(self.data) if self.status in {"needs_review", "approved", "exported"} else [])
 
 
@@ -664,18 +676,13 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
             return job.view(store)
 
     @app.post("/api/jobs")
-    def create_job(file: Annotated[UploadFile, File()]):
+    def create_job(file: Annotated[UploadFile, File()], diagnostics: Annotated[bool, Form()] = False):
         nonlocal job
         with guard:
             if not licensing.status()["active"]:
                 raise HTTPException(403, "Attiva una licenza valida prima di elaborare un PDF.")
             if job and job.status not in {"failed", "cancelled", "exported"}:
                 raise HTTPException(409, "Chiudi il documento aperto prima di caricarne un altro.")
-            if local_ai:
-                try:
-                    check_model()
-                except ValueError as error:
-                    raise HTTPException(503, "Completa la configurazione in Impostazioni → AI locale.") from error
             temp = tempfile.TemporaryDirectory(prefix="oe-job-")
             path = Path(temp.name) / "source.pdf"
             digest = hashlib.sha256()
@@ -695,7 +702,7 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 duplicate = bool(store.query("SELECT 1 FROM history WHERE hash=? LIMIT 1", (document_hash,)))
                 if job:
                     job.stop()
-                job = Job(path, str(uuid.uuid4()), document_hash, duplicate, temp, rapid_ocr=rapid_ocr, local_ai=local_ai)
+                job = Job(path, str(uuid.uuid4()), document_hash, duplicate, temp, rapid_ocr=rapid_ocr, local_ai=local_ai, diagnostics=local_ai and diagnostics)
                 return job.view(store)
             except OSError as error:
                 temp.cleanup()
@@ -766,6 +773,13 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 raise HTTPException(404, "Testo della pagina non disponibile.")
             try:
                 page_rows = read_mapping(current.directory, index, mapping)
+                if local_ai:
+                    for row in page_rows:
+                        for field in ("quantity", "unit_price"):
+                            raw = getattr(row, field)
+                            value = numeric(raw, "auto")
+                            if value is not None:
+                                setattr(row, field, value.replace(".", ",") if current.data.number_style == "it" else value)
                 rows = replace_page(current.data.rows, index, page_rows)
             except OSError as error:
                 raise HTTPException(404, "Testo della pagina non disponibile.") from error
@@ -779,6 +793,9 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
             missing = f"Pagina {index + 1}: nessuna nuova riga individuata."
             current.result["notices"] = [notice for notice in current.result["notices"] if notice != missing]
             current.result["mapped_pages"] = sorted(set(current.result.get("mapped_pages", [])) | {index})
+            current.unresolved_pages.pop(index, None)
+            if current.trace is not None and index + 1 in current.trace:
+                current.trace[index + 1]["manual_rows"] = len(page_rows)
             current.ai_documents.pop(index, None)
             current.result["ai_pages"] = sorted(current.ai_documents)
             key = confirmed_header(current.header_anchors, index, mapping)
@@ -852,7 +869,11 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                     raise HTTPException(422, "Testo della pagina non disponibile.") from error
                 style = current.data.number_style
             try:
-                proposed, document = infer_page(cached, index, style)
+                debug = {}
+                proposed, document = infer_page(cached, index, "auto", debug=debug)
+                if style == "it":
+                    for row in proposed:
+                        row.quantity, row.unit_price = row.quantity.replace(".", ","), row.unit_price.replace(".", ",")
             except ValueError as error:
                 raise HTTPException(422, str(error)) from error
             if not proposed:
@@ -875,6 +896,9 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 current.result["notices"] = [notice for notice in current.result["notices"] if notice != missing]
                 current.result["mapped_pages"] = [page for page in current.result.get("mapped_pages", []) if page != index]
                 current.manual_rules.pop(index, None)
+                current.unresolved_pages.pop(index, None)
+                if current.trace is not None:
+                    current.trace[index + 1] = debug
                 current.ai_documents[index] = document
                 current.result["ai_pages"] = sorted(current.ai_documents)
                 return current.view(store)
@@ -893,12 +917,31 @@ def create_local(base, origin, bootstrap, licensing, sample=None, updates=None, 
                 "Content-Disposition": f'attachment; filename="righe-pagina-{index + 1}.json"'
             })
 
+    @app.get("/api/jobs/{token}/diagnostics")
+    def extraction_diagnostics(token: str, summary: bool = False, download: bool = False):
+        with guard:
+            current = find(token)
+            if current.trace is None:
+                raise HTTPException(404)
+            pages = [entry for _, entry in sorted(current.trace.copy().items())]
+            common = {"version": VERSION, "status": current.status,
+                      "ollama_calls": sum(entry.get("ollama", {}).get("called", False) for entry in pages)}
+            if summary:
+                pages = [{key: entry[key] for key in ("page", "engine", "mode", "issues", "elapsed_ms") if key in entry}
+                         | {"rows": entry.get("row_count", 0),
+                            "ollama": {key: entry["ollama"][key] for key in ("eval_count", "prompt_eval_count", "elapsed_ms")
+                                       if key in entry.get("ollama", {})}} for entry in pages]
+            headers = {"Content-Disposition": 'attachment; filename="diagnostica-estrazione.json"'} if download else {}
+            return JSONResponse({**common, "pages": pages}, headers=headers)
+
     @app.post("/api/jobs/{token}/approve")
     def approve(token: str, data: Revision):
         with guard:
             current = updated(token, data)
             if not licensing.status()["active"]:
                 raise HTTPException(403, "Serve una licenza valida per approvare un nuovo CSV.")
+            if current.unresolved_pages:
+                raise HTTPException(422, "Conferma le colonne delle pagine segnalate prima di esportare.")
             if not data.reviewed or data.model_dump(exclude={"reviewed"}) != current.data.model_dump(exclude={"reviewed"}):
                 raise HTTPException(409, "Salva la revisione e confermala prima di esportare.")
             try:

@@ -56,6 +56,8 @@ function App() {
   const [bindLayout, setBindLayout] = useState(false);
   const [mapping, setMapping] = useState(null);
   const [aiStatus, setAIStatus] = useState(null);
+  const [captureDiagnostics, setCaptureDiagnostics] = useState(false);
+  const [diagnostics, setDiagnostics] = useState(null);
   const [capture, setCapture] = useState("top");
   const fileInput = useRef(null);
   const confirmation = useRef(null);
@@ -143,6 +145,8 @@ function App() {
     setSelected("");
     const data = new FormData();
     data.append("file", file, file.name || "ordine-demo.pdf");
+    if (captureDiagnostics) data.append("diagnostics", "true");
+    setDiagnostics(null);
     receive(await api("/api/jobs", {method: "POST", body: data}));
   }
 
@@ -262,6 +266,11 @@ function App() {
               <button className="button primary" disabled={!!busy} onClick={() => fileInput.current.click()}><Icon name="file" size={17}/>{busy || "Scegli un PDF"}</button>
               <small>Un PDF alla volta · Fino a 50 MiB e 100 pagine</small>
             </div>
+            {status.local_ai && <label className="privacy-toggle">
+              <input type="checkbox" checked={captureDiagnostics} disabled={!!busy}
+                onChange={event => setCaptureDiagnostics(event.target.checked)}/>
+              Registra la diagnostica locale di questo PDF
+            </label>}
             {status.sample && <div className="sample-row"><span>Vuoi provare con un documento di esempio?</span><button className="text-button" disabled={!!busy} onClick={() => run("Caricamento", async () => {
               const response = await fetch("/sample.pdf");
               if (!response.ok) throw new Error("PDF dimostrativo non disponibile.");
@@ -269,7 +278,8 @@ function App() {
             })}>Usa l’ordine demo <Icon name="right" size={15}/></button></div>}
           </section>}
           {job?.status === "running" && <section className="panel progress-panel"><div className="feature-icon"><Icon name="file"/></div>
-            <h2>{job.progress.phase === "ollama" ? "Analisi AI locale" : "Lettura del documento"}</h2>
+            <h2>{job.progress.phase === "ollama" ? "Analisi AI locale"
+              : job.progress.phase === "layout" ? "Ricostruzione della tabella" : "Lettura del documento"}</h2>
             <p role="status">{job.progress.total ? `Pagina ${Math.min(job.progress.checked + 1, job.progress.total)} di ${job.progress.total}` : "Preparazione del PDF…"}
               {job.progress.phase === "ollama" && (job.progress.chars > 0
                 ? ` · Risposta in corso (${job.progress.chars} caratteri)`
@@ -280,9 +290,32 @@ function App() {
               ? <progress max={job.progress.total} value={job.progress.checked || 0}/> : <progress/>}
           </section>}
           {job?.status === "failed" && <p className="notice error" role="alert">{job.error}</p>}
+          {job?.diagnostics && <section className="panel settings-card">
+            <h2>Diagnostica estrazione</h2>
+            <p>Il rapporto completo contiene testo del documento e, quando usato, prompt e risposta di Ollama.</p>
+            <div className="review-actions">
+              <button className="button outline" disabled={!!busy} onClick={() => run("Lettura diagnostica", async () => {
+                setDiagnostics(await api(`/api/jobs/${job.token}/diagnostics`));
+              })}>Mostra diagnostica</button>
+              <a className="button outline" href={`/api/jobs/${job.token}/diagnostics?summary=true&download=true`}>Scarica riepilogo</a>
+              <a className="button outline" href={`/api/jobs/${job.token}/diagnostics?download=true`}
+                onClick={event => {if (!window.confirm("Scaricare anche il testo dell’ordine?")) event.preventDefault();}}>Scarica rapporto completo</a>
+            </div>
+            {diagnostics && <div aria-live="polite">
+              <p>Chiamate a Ollama: {diagnostics.ollama_calls}</p>
+              {diagnostics.pages.map(entry => <details key={entry.page}>
+                <summary>Pagina {entry.page} · {entry.engine} · {entry.mode} · {entry.elapsed_ms || 0} ms</summary>
+                <pre className="diagnostics-output">{JSON.stringify(entry, null, 2)}</pre>
+              </details>)}
+            </div>}
+          </section>}
           {ready && <>
             {job.duplicate && <p className="notice">Questo PDF è già stato elaborato. Puoi continuare la revisione.</p>}
             {job.notices?.length > 0 && <p className="notice">{job.notices.join(" ")}</p>}
+            {job.unresolved?.map(item => <p key={item.page} className="notice error">
+              <button className="text-button" onClick={() => setPage(item.page)}>Pagina {item.page + 1}</button>
+              {" "}{item.reason}
+            </p>)}
             {job.status === "exported" && <p className="notice success" role="status">CSV scaricato. Puoi chiudere l’ordine o apportare altre correzioni.</p>}
             <div className="review">
               <section className="panel preview">
@@ -301,7 +334,8 @@ function App() {
                     })}
                   </svg>
                 </div></div>
-                <div className="preview-foot"><span>{job.mapped_pages?.includes(page) ? "Mappatura manuale" : job.engines[page]}</span>{!status.local_ai && !mapping && job.mappable_pages?.includes(page) &&
+                <div className="preview-foot"><span>{job.mapped_pages?.includes(page) ? "Mappatura manuale" : job.engines[page]}</span>{(!status.local_ai || job.unresolved?.some(item => item.page === page))
+                  && !mapping && job.mappable_pages?.includes(page) &&
                   <button className="button outline" disabled={!!busy} onClick={() => openMapping()}>Mappa colonne</button>}</div>
                 {status.local_ai && !mapping && job.mappable_pages?.includes(page) && <div className="preview-foot">
                   <button className="button outline" disabled={!!busy || dirty || !status.license.active} onClick={() => {
@@ -366,7 +400,7 @@ function App() {
                 {!dirty && job.issues?.length > 0 && <ul className="issues">{job.issues.slice(0, 8).map((issue, index) => <li key={index}>{issue.row_id ? `Riga ${draft.rows.findIndex(row => row.row_id === issue.row_id) + 1} · ` : ""}{issue.message}</li>)}</ul>}
                 <div className="review-actions">
                   <button className="button outline" disabled={!!busy || !dirty} onClick={() => run("Verifica", save)}>Salva e verifica</button>
-                  <button className="button primary" disabled={!!busy || !status.license.active} onClick={() => run("Verifica", async () => {
+                  <button className="button primary" disabled={!!busy || !status.license.active || Boolean(job.unresolved?.length)} onClick={() => run("Verifica", async () => {
                     const checked = dirty ? await save() : job;
                     if (checked.issues.some(issue => issue.severity === "blocking")) throw new Error("Correggi gli errori indicati prima di esportare.");
                     confirmation.current.showModal();
@@ -412,7 +446,7 @@ function App() {
             });}}><label>Nome del profilo<input value={profileName} required maxLength={80} onChange={event => setProfileName(event.target.value)}/></label>
               {job.can_learn_layout && !dirty && <label className="privacy-toggle"><input type="checkbox" checked={bindLayout} onChange={event => setBindLayout(event.target.checked)}/>Suggerisci il profilo per ordini con questo layout</label>}
               <button className="button primary" disabled={!!busy}>Salva impostazioni correnti</button></form> : <p className="mute">Apri un ordine per salvare le sue impostazioni come profilo.</p>}
-          </section>{status.local_ai && <section className="panel settings-card"><h2>AI locale</h2>
+          </section>{status.local_ai && <section className="panel settings-card"><h2>AI locale</h2><p>Ollama serve quando le intestazioni richiedono una conferma.</p>
             {!aiStatus && <p role="status">Verifica del motore locale…</p>}
             {aiStatus?.stage === "engine" && <div>
               <p><strong>1. Installa e avvia Ollama.</strong> Dopo l’avvio, torna a questa schermata.</p>

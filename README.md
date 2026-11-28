@@ -14,7 +14,9 @@ Nella build sperimentale Windows apri **Impostazioni → AI locale**. Se il moto
 
 Carica un PDF. La schermata mostra la lettura delle pagine, poi la pagina e la parte in elaborazione da Ollama, il tempo trascorso e l’avanzamento della risposta. Rivedi le righe proposte e conferma l’esportazione. Il CSV usa UTF-8, separatore `;`, fine riga CRLF e punto decimale, con le colonne `numero_riga;articolo;lotto;descrizione;quantita;prezzo_unitario`.
 
-L’installer Windows usa pdfplumber per il testo nativo e PDFium con RapidOCR per le scansioni. Il comando batch usa PyMuPDF per il rendering delle scansioni. L’app seleziona le sezioni tabellari e passa testo e riferimenti spaziali al modello sullo stesso PC. Il modello restituisce i valori della tabella in JSON. Python li verifica sulla stessa riga della fonte e scrive il CSV. Per distribuire un installer che include PyMuPDF, verifica gli obblighi della sua licenza AGPL o usa una licenza commerciale.
+L’installer Windows usa pdfplumber per il testo nativo e PDFium con RapidOCR per le scansioni. Il comando batch usa PyMuPDF per il rendering delle scansioni. L’app ricostruisce le righe usando i bordi del PDF, quando presenti, o le coordinate della pagina. Le intestazioni riconoscibili vengono risolte senza chiamare Ollama. Per le colonne non riconosciute, il modello locale riceve solo intestazioni candidate e fino a due esempi. Se una pagina resta ambigua, usa **Mappa colonne** nella revisione prima di esportare.
+
+Prima di caricare un PDF, puoi selezionare **Registra la diagnostica locale di questo PDF**. Apri **Mostra diagnostica** per vedere testo letto, confini, identificativi delle colonne, tentativi Ollama e anomalie per pagina. **Scarica riepilogo** contiene solo metadati, conteggi e codici; **Scarica rapporto completo** contiene il testo dell’ordine e richiede conferma. La diagnostica è disponibile per la durata del documento aperto. Per distribuire un installer che include PyMuPDF, verifica gli obblighi della sua licenza AGPL o usa una licenza commerciale.
 
 ### Elaborare una cartella dal terminale
 

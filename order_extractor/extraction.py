@@ -198,7 +198,15 @@ def extract(path: Path, directory: Path, progress, *, rapid_ocr=False, text_only
                         image = raster_pymupdf(path, index) if use_pymupdf else raster(page, 200)
                         words = rapid_words(image, rapid_engine)
                         engine = "OCR RapidOCR"
-                    cached = cache_page(directory, index, lines_for(words), cache_budget, engine)
+                    rules = []
+                    if readable:
+                        rules = sorted({
+                            tuple(round(max(0, min(1, coord)), 4) for coord in
+                                  (edge["top"] / native_page.height, edge["x0"] / native_page.width,
+                                   edge["x1"] / native_page.width))
+                            for edge in native_page.horizontal_edges if edge["width"] >= .14 * native_page.width
+                        })[:1024]
+                    cached = cache_page(directory, index, lines_for(words), cache_budget, engine, rules=rules)
                     if cached:
                         cache_budget -= cached
                         mappable_pages.append(index)

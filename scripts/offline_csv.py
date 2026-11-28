@@ -38,9 +38,9 @@ def run(root, number_style, *, init=False):
                 metadata = extract(pdf, work, lambda index, count: print(
                     f"{path.name} · lettura {min(index + 1, count)}/{count}", file=sys.stderr), text_only=True, use_pymupdf=True)
 
-                def progress(index, count, part, parts, chars):
+                def progress(index, count, phase, chars):
                     if chars == 0:
-                        print(f"{path.name} · Ollama pagina {index + 1}/{count}, parte {part}/{parts}", file=sys.stderr)
+                        print(f"{path.name} · {phase} pagina {index + 1}/{count}", file=sys.stderr)
 
                 rows = infer_document(work, metadata, number_style, progress)
             if not rows:
@@ -48,7 +48,7 @@ def run(root, number_style, *, init=False):
             currencies = {row.currency for row in rows if row.currency}
             if len(currencies) > 1:
                 raise ValueError("Il documento contiene più valute. Verificalo nell’app.")
-            revision = Revision(revision=0, rows=rows, number_style=number_style,
+            revision = Revision(revision=0, rows=rows, number_style="en" if number_style == "auto" else number_style,
                                 currency=next(iter(currencies), ""), reviewed=True)
             blocking = [issue["message"] for issue in validate(revision) if issue["severity"] == "blocking"]
             if blocking:

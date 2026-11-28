@@ -48,7 +48,7 @@ jobs:
       - run: uv sync --locked
       - run: uv run --locked python -m pytest tests/test_worker_limits.py -k cancel -q
       - run: uv run --locked python -m pytest tests/test_windows_appcontainer.py -q
-      - run: uv run --locked python -m pytest tests/test_offline_csv.py tests/test_local_ai.py -q
+      - run: uv run --locked --group beta-ocr python -m pytest tests/test_offline_csv.py tests/test_local_ai.py tests/test_table_mapping.py -q
   windows-installer:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/offline-ai-csv' || github.ref_type == 'tag')
     runs-on: windows-2025
@@ -218,7 +218,7 @@ jobs:
             --repo "$GH_REPO" --signer-workflow "$GH_REPO/.github/workflows/tests.yml" \
             --source-ref "$GITHUB_REF" --deny-self-hosted-runners
           if [[ "$TAG" == *-beta ]]; then
-            notes='Beta Windows x64 con analisi AI automatica, configurazione guidata di Ollama, avanzamento in app e CSV normalizzato. Le scansioni usano PDFium e RapidOCR. Richiede una licenza Order Extractor. Installazione separata. Installer senza firma Authenticode, con SHA-256 e attestazione GitHub.'
+            notes='Beta Windows x64 con ricostruzione delle righe dai bordi del PDF, Ollama per le sole colonne dubbie e diagnostica locale per pagina. Le scansioni usano PDFium e RapidOCR. Richiede una licenza Order Extractor. Installazione separata. Installer senza firma Authenticode, con SHA-256 e attestazione GitHub.'
             if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft); then
               [[ "$draft" == true ]] || { echo 'Beta già pubblicata'; exit 1; }
               gh release upload "$TAG" release-assets/* --clobber

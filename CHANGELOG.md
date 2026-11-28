@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4 Beta
+
+- Ricostruzione delle righe dai bordi del PDF, con controllo delle colonne e prezzi ambigui.
+- Consultazione di Ollama per le sole intestazioni ancora irrisolte.
+- Diagnostica per pagina, con riepilogo senza testo dell’ordine e rapporto completo scaricabile su richiesta.
+
 ## 1.0.3 Beta
 
 La tabella viene ricomposta prima di interpellare Ollama. Il modello restituisce i valori
